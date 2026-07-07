@@ -13,6 +13,20 @@
     screens[name].classList.remove('hidden');
   }
 
+  function showDebugError(message) {
+    let el = document.getElementById('debug-error');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'debug-error';
+      el.style.cssText =
+        'position:fixed;bottom:0;left:0;right:0;background:#4a1f2b;color:#fff;' +
+        'padding:12px 16px;font-size:13px;font-family:monospace;z-index:9999;' +
+        'white-space:pre-wrap;max-height:40vh;overflow:auto;';
+      document.body.appendChild(el);
+    }
+    el.textContent = 'Erreur : ' + message;
+  }
+
   function isStandalone() {
     return (
       window.navigator.standalone === true ||
@@ -47,7 +61,11 @@
 
   async function fetchState() {
     const res = await fetch('/api/state');
-    return res.json();
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Erreur serveur (${res.status})`);
+    }
+    return data;
   }
 
   async function registerServiceWorker() {
@@ -67,11 +85,19 @@
       });
     }
 
-    await fetch('/api/subscribe', {
+    await subscribeSubscriptionOnServer(subscription, packStartDate, packNumberInBox);
+  }
+
+  async function subscribeSubscriptionOnServer(subscription, packStartDate, packNumberInBox) {
+    const res = await fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription, packStartDate, packNumberInBox }),
     });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Erreur serveur (${res.status})`);
+    }
   }
 
   function renderRing(days, cycleDay) {
@@ -174,12 +200,19 @@
 
       if (prefill) {
         // Re-configuration depuis l'écran principal : on a déjà un abonnement push
-        await fetch('/api/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update_pack_start', packStartDate, packNumberInBox }),
-        });
-        await refreshMain();
+        try {
+          const res = await fetch('/api/state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update_pack_start', packStartDate, packNumberInBox }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `Erreur serveur (${res.status})`);
+          await refreshMain();
+        } catch (err) {
+          console.error(err);
+          showDebugError(err.message || String(err));
+        }
         return;
       }
 
@@ -205,7 +238,7 @@
         await subscribeToPush(pendingPackStartDate, pendingPackNumber);
         await refreshMain();
       } catch (err) {
-        errorEl.textContent = 'Une erreur est survenue, réessaie.';
+        errorEl.textContent = err.message || 'Une erreur est survenue, réessaie.';
         errorEl.classList.remove('hidden');
         console.error(err);
       }
@@ -228,12 +261,17 @@
 
   function bindSettingsButton() {
     document.getElementById('settings-btn').onclick = async () => {
-      const state = await fetchState();
-      bindOnboardingForm({
-        packStartDate: state.effectivePackStartDate,
-        packNumberInBox: state.packNumberInBox,
-      });
-      showScreen('onboarding');
+      try {
+        const state = await fetchState();
+        bindOnboardingForm({
+          packStartDate: state.effectivePackStartDate,
+          packNumberInBox: state.packNumberInBox,
+        });
+        showScreen('onboarding');
+      } catch (err) {
+        console.error(err);
+        showDebugError(err.message || String(err));
+      }
     };
   }
 
@@ -243,27 +281,32 @@
       return;
     }
 
-    await registerServiceWorker();
-    bindNotifButton();
-    bindForgotButton();
-    bindSettingsButton();
+    try {
+      await registerServiceWorker();
+      bindNotifButton();
+      bindForgotButton();
+      bindSettingsButton();
 
-    const state = await fetchState();
+      const state = await fetchState();
 
-    if (!state.onboarded) {
-      bindOnboardingForm(null);
-      showScreen('onboarding');
-      return;
+      if (!state.onboarded) {
+        bindOnboardingForm(null);
+        showScreen('onboarding');
+        return;
+      }
+
+      if (!state.hasPushSubscription || Notification.permission !== 'granted') {
+        pendingPackStartDate = state.effectivePackStartDate;
+        pendingPackNumber = state.packNumberInBox;
+        showScreen('notif');
+        return;
+      }
+
+      renderMain(state);
+    } catch (err) {
+      console.error(err);
+      showDebugError(err.message || String(err));
     }
-
-    if (!state.hasPushSubscription || Notification.permission !== 'granted') {
-      pendingPackStartDate = state.effectivePackStartDate;
-      pendingPackNumber = state.packNumberInBox;
-      showScreen('notif');
-      return;
-    }
-
-    renderMain(state);
   }
 
   init();

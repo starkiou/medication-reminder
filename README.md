@@ -54,9 +54,18 @@ connaissant l'URL ne déclenche une notification chez vous.
 2. Une fois le projet créé, va dans **SQL Editor**, colle le contenu du fichier
    `supabase.sql` fourni ici, et exécute-le. Ça crée la table `app_state` avec une ligne
    de départ.
-3. Va dans **Project Settings > API**. Note :
+3. Récupère l'URL et la clé — le plus simple est le bouton **Connect** en haut du
+   dashboard, qui affiche les deux directement. Sinon :
+   - **Project URL** → **Settings > Data API**
+   - **Clé** → **Settings > API Keys**. Supabase a renommé les anciennes clés : prends la
+     **Secret key** (commence par `sb_secret_...`, à créer si elle n'existe pas encore)
+     — ou, si tu vois encore l'ancien système, la clé **service_role** sous l'onglet
+     **Legacy API Keys**. Les deux fonctionnent avec ce projet.
    - `Project URL` → ce sera `SUPABASE_URL`
-   - `service_role` key (pas la `anon` key) → ce sera `SUPABASE_SERVICE_KEY`
+   - La clé secrète → ce sera `SUPABASE_SERVICE_KEY`
+
+   ⚠️ Ne prends jamais la clé **Publishable** / **anon** ici — cette clé-là est prévue
+   pour le navigateur et n'a pas les droits nécessaires pour notre serveur.
 
 ## 2. Générer les clés de notification (VAPID)
 
