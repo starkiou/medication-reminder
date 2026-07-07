@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pilule</title>
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1F1A2E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pilule">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" href="/icons/icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<!-- Écran d'installation (affiché si le site n'est pas ouvert en PWA installée) -->
+<div id="install-screen" class="screen hidden">
+  <div class="card form-stack center-text">
+    <p class="eyebrow">Avant de commencer</p>
+    <h2>Installe l'app sur l'écran d'accueil</h2>
+    <p>Ouvre ce lien dans Safari, appuie sur <strong>Partager</strong> puis <strong>Sur l'écran d'accueil</strong>. Les notifications ne fonctionnent que depuis l'icône installée.</p>
+  </div>
+</div>
+
+<!-- Onboarding -->
+<div id="onboarding-screen" class="screen hidden">
+  <div class="card form-stack">
+    <p class="eyebrow">Configuration</p>
+    <h2>Où en es-tu dans ta plaquette ?</h2>
+    <form id="onboarding-form" class="form-stack">
+      <label>
+        Date du 1er comprimé de la plaquette en cours
+        <input type="date" id="pack-start-date" required>
+      </label>
+      <label>
+        Quelle plaquette de la boîte (sur 3) ?
+        <select id="pack-number">
+          <option value="1">Plaquette 1</option>
+          <option value="2">Plaquette 2</option>
+          <option value="3">Plaquette 3</option>
+        </select>
+      </label>
+      <button type="submit" class="btn-primary">Continuer</button>
+    </form>
+  </div>
+</div>
+
+<!-- Demande de permission de notification -->
+<div id="notif-screen" class="screen hidden">
+  <div class="card form-stack center-text">
+    <p class="eyebrow">Dernière étape</p>
+    <h2>Active les notifications</h2>
+    <p>Tu recevras un rappel chaque jour à 21h, même téléphone verrouillé.</p>
+    <button id="enable-notif-btn" class="btn-primary">Activer les notifications</button>
+    <p id="notif-error" class="footer-note hidden"></p>
+  </div>
+</div>
+
+<!-- Écran principal -->
+<div id="main-screen" class="screen hidden">
+
+  <div class="card center-text">
+    <p class="eyebrow" id="pack-label">Plaquette 1</p>
+
+    <div class="ring-wrap">
+      <svg id="ring-svg" viewBox="0 0 260 260"></svg>
+      <div class="ring-center">
+        <div class="big" id="ring-day">1</div>
+        <div class="small" id="ring-total">/ 28 jours</div>
+      </div>
+    </div>
+
+    <div id="status-pill" class="status-pill">Prends ta pilule</div>
+
+    <div class="legend">
+      <span><span class="dot" style="background:var(--rose)"></span>Prise</span>
+      <span><span class="dot" style="background:var(--gold)"></span>Pause</span>
+    </div>
+  </div>
+
+  <div id="new-box-banner" class="banner hidden">
+    Il ne reste qu'une plaquette : pense à racheter une boîte avant la fin de la pause.
+  </div>
+
+  <div class="row">
+    <div class="stat">
+      <div class="label">Comprimés restants (plaquette)</div>
+      <div class="value" id="pills-remaining">21</div>
+    </div>
+    <div class="stat">
+      <div class="label">Notifications</div>
+      <div class="value" id="notif-status">Actives</div>
+    </div>
+  </div>
+
+  <button id="forgot-btn" class="btn-secondary">J'ai oublié hier</button>
+  <button id="settings-btn" class="btn-ghost">Modifier la date de départ</button>
+
+  <p class="footer-note">Rappel envoyé chaque jour à 21h. Ce suivi ne remplace pas la notice de ton médicament.</p>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
