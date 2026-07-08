@@ -6,6 +6,7 @@
     onboarding: document.getElementById('onboarding-screen'),
     notif: document.getElementById('notif-screen'),
     main: document.getElementById('main-screen'),
+    history: document.getElementById('history-screen'),
   };
 
   function showScreen(name) {
@@ -181,6 +182,55 @@
     if (state.onboarded) renderMain(state);
   }
 
+  async function fetchHistory() {
+    const res = await fetch('/api/history?days=56');
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Erreur serveur (${res.status})`);
+    }
+    return data;
+  }
+
+  function renderHistory(days) {
+    const grid = document.getElementById('history-grid');
+    grid.innerHTML = '';
+
+    days.forEach((day) => {
+      const cell = document.createElement('div');
+      cell.className = 'history-cell';
+      cell.title = day.date;
+
+      if (day.isFuture) {
+        cell.classList.add('future');
+      } else if (day.missed) {
+        cell.style.background = '#E0555A';
+      } else {
+        cell.style.background = day.phase === 'pill' ? 'var(--rose)' : 'var(--gold)';
+      }
+
+      if (day.isToday) cell.classList.add('today');
+
+      grid.appendChild(cell);
+    });
+  }
+
+  function bindHistoryButtons() {
+    document.getElementById('history-btn').onclick = async () => {
+      try {
+        const data = await fetchHistory();
+        renderHistory(data.days || []);
+        showScreen('history');
+      } catch (err) {
+        console.error(err);
+        showDebugError(err.message || String(err));
+      }
+    };
+
+    document.getElementById('history-back-btn').onclick = () => {
+      showScreen('main');
+    };
+  }
+
   function bindOnboardingForm(prefill) {
     const form = document.getElementById('onboarding-form');
     const dateInput = document.getElementById('pack-start-date');
@@ -286,6 +336,7 @@
       bindNotifButton();
       bindForgotButton();
       bindSettingsButton();
+      bindHistoryButtons();
 
       const state = await fetchState();
 

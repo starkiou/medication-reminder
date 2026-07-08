@@ -29,7 +29,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 20px calc(40px + env(safe-area-inset-bottom));
+  justify-content: center;
+  padding: calc(24px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom));
 }
 
 .screen {
@@ -62,6 +63,36 @@ p { margin: 0; line-height: 1.5; }
   background: var(--surface);
   border-radius: var(--radius);
   padding: 24px;
+}
+
+.med-card {
+  padding: 18px 20px;
+}
+
+.med-name {
+  font-size: 22px;
+  margin: 2px 0 6px;
+}
+
+.med-dosage {
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.med-detail {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.med-cycle {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .ring-wrap {
@@ -222,4 +253,36 @@ input, select {
   border-radius: 50%;
   margin-right: 6px;
   vertical-align: middle;
+}
+
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.history-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  position: relative;
+}
+
+.history-cell.future {
+  background: rgba(180, 169, 201, 0.12);
+}
+
+.history-cell.today {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.history-cell .missed-mark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
 }

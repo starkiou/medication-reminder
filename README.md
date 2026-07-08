@@ -41,6 +41,13 @@ la notification quelques secondes après. Cet endpoint exige que `CRON_SECRET` s
 défini sur Vercel — sans ça, il refuse de répondre, pour éviter que n'importe qui
 connaissant l'URL ne déclenche une notification chez vous.
 
+## Nouveauté : historique
+
+Un bouton "Voir l'historique" sur l'écran principal affiche les 8 dernières semaines
+(prise / pause / oublié), calculées à la volée à partir de la date d'ancrage — pas
+besoin de migration Supabase pour cette fonctionnalité, elle utilise les colonnes déjà
+existantes.
+
 ## Ce dont tu as besoin (tout est gratuit)
 
 - Un compte [GitHub](https://github.com) (tu l'as déjà)
