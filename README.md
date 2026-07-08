@@ -43,10 +43,25 @@ connaissant l'URL ne déclenche une notification chez vous.
 
 ## Nouveauté : historique
 
-Un bouton "Voir l'historique" sur l'écran principal affiche les 8 dernières semaines
-(prise / pause / oublié), calculées à la volée à partir de la date d'ancrage — pas
-besoin de migration Supabase pour cette fonctionnalité, elle utilise les colonnes déjà
-existantes.
+Un bouton "Voir l'historique" sur l'écran principal affiche l'historique complet
+(prise / pause / oublié), regroupé par semaines avec la date en repère à gauche de
+chaque ligne — pas de limite fixe à 8 semaines, ça remonte jusqu'à la création du compte
+(plafonné à 1 an pour éviter une réponse démesurée après longtemps).
+
+**Important** : l'historique ne remonte jamais avant la date de création réelle du
+compte — donc pas de semaines "fantômes" calculées à l'envers avant que l'app n'ait été
+installée. Ça nécessite une nouvelle colonne `created_at`.
+
+**Si tu as déjà une base Supabase existante**, lance cette migration avant de
+redéployer (SQL Editor) :
+
+```sql
+alter table app_state add column if not exists created_at timestamptz not null default now();
+```
+
+Comme la valeur par défaut s'applique au moment où tu lances la commande, l'historique
+d'un compte déjà existant ne remontera pas avant aujourd'hui non plus — c'est voulu,
+plutôt que d'afficher un historique inventé.
 
 ## Ce dont tu as besoin (tout est gratuit)
 

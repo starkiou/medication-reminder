@@ -150,6 +150,11 @@
     });
   }
 
+  function formatDateShort(iso) {
+    const [, m, d] = iso.split('-');
+    return `${d}/${m}`;
+  }
+
   function renderMain(state) {
     document.getElementById('pack-label').textContent = `Plaquette ${state.packNumberInBox} / 3`;
     document.getElementById('ring-day').textContent = state.cycleDay;
@@ -159,20 +164,35 @@
 
     const statusPill = document.getElementById('status-pill');
     if (state.phase === 'pill') {
-      statusPill.textContent = `Jour ${state.cycleDay}/21 — prends ta pilule`;
+      statusPill.textContent =
+        state.cycleDay === 1
+          ? 'Jour 1/21 - reprise après la pause, prends ta pilule'
+          : `Jour ${state.cycleDay}/21 - prends ta pilule`;
       statusPill.classList.remove('pause');
     } else {
-      statusPill.textContent = `Pause ${state.pauseDayNumber}/7 — repos`;
+      statusPill.textContent = `Pause ${state.pauseDayNumber}/7 - repos`;
       statusPill.classList.add('pause');
     }
 
     document.getElementById('pills-remaining').textContent =
-      state.phase === 'pill' ? state.pillsRemainingInPack : '—';
+      state.phase === 'pill' ? state.pillsRemainingInPack : '-';
 
     document.getElementById('notif-status').textContent =
       state.hasPushSubscription && Notification.permission === 'granted' ? 'Actives' : 'Inactives';
 
     document.getElementById('new-box-banner').classList.toggle('hidden', !state.needsNewBox);
+
+    const resumeBanner = document.getElementById('resume-banner');
+    if (state.phase === 'pause') {
+      const urgent = state.daysUntilResume === 1;
+      resumeBanner.textContent = urgent
+        ? 'Dernier jour de pause - tu reprends la pilule demain !'
+        : `Reprise le ${formatDateShort(state.nextPackStartDate)}`;
+      resumeBanner.classList.remove('hidden');
+      resumeBanner.classList.toggle('urgent', urgent);
+    } else {
+      resumeBanner.classList.add('hidden');
+    }
 
     showScreen('main');
   }
@@ -183,7 +203,7 @@
   }
 
   async function fetchHistory() {
-    const res = await fetch('/api/history?days=56');
+    const res = await fetch('/api/history');
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || `Erreur serveur (${res.status})`);
@@ -191,26 +211,63 @@
     return data;
   }
 
-  function renderHistory(days) {
-    const grid = document.getElementById('history-grid');
-    grid.innerHTML = '';
+  const DAY_NAMES = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 
-    days.forEach((day) => {
-      const cell = document.createElement('div');
-      cell.className = 'history-cell';
-      cell.title = day.date;
+  function formatDayLabel(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    return `${DAY_NAMES[date.getUTCDay()]} ${formatDateShort(iso)}/${y}`;
+  }
 
-      if (day.isFuture) {
-        cell.classList.add('future');
-      } else if (day.missed) {
-        cell.style.background = '#E0555A';
+  function renderHistory(data) {
+    const days = data.days || [];
+    const list = document.getElementById('history-list');
+    list.innerHTML = '';
+
+    document.getElementById('history-subtitle').textContent = data.startDate
+      ? `Depuis le ${formatDateShort(data.startDate)}`
+      : 'Depuis le début du suivi';
+
+    // Plus récent en premier, comme un relevé.
+    [...days].reverse().forEach((day) => {
+      const label = document.createElement('div');
+      label.className = 'history-day-label';
+      label.textContent = day.isToday ? "Aujourd'hui" : formatDayLabel(day.date);
+      list.appendChild(label);
+
+      const row = document.createElement('div');
+      row.className = 'history-row' + (day.isToday ? ' today' : '');
+
+      const icon = document.createElement('div');
+      icon.className = 'history-row-icon';
+
+      const main = document.createElement('div');
+      main.className = 'history-row-main';
+
+      const status = document.createElement('div');
+      status.className = 'history-row-status';
+
+      if (day.missed) {
+        icon.style.background = '#E0555A';
+        main.innerHTML = '<div class="history-row-title">Ma pilule</div><div class="history-row-time">21:00</div>';
+        status.textContent = '✕ Oublié';
+        status.classList.add('missed');
+      } else if (day.phase === 'pill') {
+        icon.style.background = 'var(--rose)';
+        main.innerHTML = '<div class="history-row-title">Ma pilule</div><div class="history-row-time">21:00</div>';
+        status.textContent = '✓ Prise';
+        status.classList.add('taken');
       } else {
-        cell.style.background = day.phase === 'pill' ? 'var(--rose)' : 'var(--gold)';
+        icon.style.background = 'var(--gold)';
+        main.innerHTML = '<div class="history-row-title">Jour de pause</div>';
+        status.textContent = 'Pause';
+        status.classList.add('pause');
       }
 
-      if (day.isToday) cell.classList.add('today');
-
-      grid.appendChild(cell);
+      row.appendChild(icon);
+      row.appendChild(main);
+      row.appendChild(status);
+      list.appendChild(row);
     });
   }
 
@@ -218,7 +275,7 @@
     document.getElementById('history-btn').onclick = async () => {
       try {
         const data = await fetchHistory();
-        renderHistory(data.days || []);
+        renderHistory(data);
         showScreen('history');
       } catch (err) {
         console.error(err);

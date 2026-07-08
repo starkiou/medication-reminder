@@ -15,9 +15,6 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const daysParam = parseInt(req.query.days, 10);
-    const numDays = Number.isFinite(daysParam) ? Math.min(Math.max(daysParam, 7), 180) : 56;
-
     const supabase = getSupabase();
     const { data: row, error } = await supabase
       .from('app_state')
@@ -34,6 +31,17 @@ module.exports = async function handler(req, res) {
     const missed = new Set(row.missed_dates || []);
     const todayISO = toISODate(new Date());
 
+    // On ne remonte jamais avant la création réelle du compte : pas
+    // d'historique fantaisiste antérieur à l'installation de l'app.
+    const createdISO = row.created_at ? toISODate(new Date(row.created_at)) : todayISO;
+    const daysSinceCreation =
+      Math.round((new Date(todayISO) - new Date(createdISO)) / 86400000) + 1;
+
+    const daysParam = parseInt(req.query.days, 10);
+    const requested = Number.isFinite(daysParam) ? Math.max(daysParam, 1) : 365;
+    const MAX_DAYS = 365; // garde-fou pour éviter une réponse démesurée après des années d'usage
+    const numDays = Math.min(requested, daysSinceCreation, MAX_DAYS);
+
     const days = [];
     for (let i = numDays - 1; i >= 0; i--) {
       const dateISO = addDaysISO(todayISO, -i);
@@ -48,7 +56,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    res.status(200).json({ onboarded: true, days });
+    res.status(200).json({ onboarded: true, days, startDate: createdISO });
   } catch (err) {
     console.error('history error', err);
     res.status(500).json({ error: err.message || 'Erreur serveur' });

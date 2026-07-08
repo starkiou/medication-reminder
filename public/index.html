@@ -97,6 +97,8 @@
     Il ne reste qu'une plaquette : pense à racheter une boîte avant la fin de la pause.
   </div>
 
+  <div id="resume-banner" class="banner resume hidden"></div>
+
   <div class="row">
     <div class="stat">
       <div class="label">Comprimés restants (plaquette)</div>
@@ -119,15 +121,9 @@
 <div id="history-screen" class="screen hidden">
   <div class="card">
     <p class="eyebrow center-text">Historique</p>
-    <h2 class="center-text">8 dernières semaines</h2>
+    <h2 class="center-text" id="history-subtitle">Depuis le début du suivi</h2>
 
-    <div class="legend" style="margin: 12px 0 4px;">
-      <span><span class="dot" style="background:var(--rose)"></span>Prise</span>
-      <span><span class="dot" style="background:var(--gold)"></span>Pause</span>
-      <span><span class="dot" style="background:#E0555A"></span>Oublié</span>
-    </div>
-
-    <div id="history-grid" class="history-grid"></div>
+    <div id="history-list" class="history-list"></div>
   </div>
 
   <button id="history-back-btn" class="btn-ghost">Retour</button>
