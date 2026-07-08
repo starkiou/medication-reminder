@@ -63,6 +63,34 @@ Comme la valeur par défaut s'applique au moment où tu lances la commande, l'hi
 d'un compte déjà existant ne remontera pas avant aujourd'hui non plus — c'est voulu,
 plutôt que d'afficher un historique inventé.
 
+## Notification pile à 21h00 (et non dans une fenêtre 21h-21h59)
+
+Le cron intégré de Vercel (plan gratuit) ne garantit pas la minute exacte — il peut se
+déclencher n'importe quand dans l'heure programmée. Pour une notification à la minute
+pile, on utilise à la place un service de cron externe et gratuit,
+[cron-job.org](https://cron-job.org), qui appelle notre endpoint `/api/cron` à l'heure
+précise.
+
+**`vercel.json` ne contient donc plus de cron** (fichier vide) — c'est normal, c'est
+voulu.
+
+**Mise en place (5 minutes) :**
+
+1. Crée un compte gratuit sur [cron-job.org](https://console.cron-job.org)
+2. Crée un nouveau cronjob :
+   - **URL** : `https://ton-app.vercel.app/api/cron`
+   - **Schedule** : tous les jours à **21:00**
+   - **Timezone** : `Europe/Paris` (gère automatiquement l'heure d'été/hiver)
+3. Dans les réglages avancés du cronjob, ajoute un **header personnalisé** :
+   - Nom : `Authorization`
+   - Valeur : `Bearer TA_VALEUR_DE_CRON_SECRET` (la même que celle définie sur Vercel)
+4. Sauvegarde et active le cronjob
+
+C'est tout — le code de `/api/cron` n'a pas changé, il accepte déjà les appels externes
+tant que le bon `Authorization` est fourni. Tu peux vérifier l'historique des
+exécutions directement sur le dashboard de cron-job.org pour confirmer que ça se
+déclenche bien chaque jour.
+
 ## Ce dont tu as besoin (tout est gratuit)
 
 - Un compte [GitHub](https://github.com) (tu l'as déjà)
@@ -137,8 +165,9 @@ git push -u origin main
 4. Clique **Deploy**. Après quelques secondes tu obtiens une URL du type
    `https://tracker-xxxx.vercel.app`.
 
-Vercel relit `vercel.json` et programme automatiquement le rappel quotidien (voir plus
-bas pourquoi il y a deux horaires).
+Le rappel quotidien n'est **pas** géré par Vercel ici — configure cron-job.org comme
+indiqué dans la section "Notification pile à 21h00" plus bas avant de passer à
+l'installation sur l'iPhone.
 
 ## 5. Installer sur l'iPhone
 
@@ -162,16 +191,8 @@ C'est prêt. Le rappel arrivera chaque jour à 21h.
 - **Le bouton « J'ai oublié hier »** note simplement l'oubli pour ton information ; il ne
   modifie pas le calendrier (les règles de rattrapage restent celles de la notice du
   médicament).
-- **Pourquoi deux horaires dans `vercel.json`** : les cron jobs de Vercel tournent en
-  heure UTC fixe, qui ne suit pas automatiquement le changement heure d'été/hiver
-  français. Le code programme donc un déclenchement à 19h **et** 20h UTC ; à chaque
-  appel, le serveur vérifie l'heure réelle à Paris et n'envoie la notification que si
-  elle correspond à 21h — l'autre appel de la journée est ignoré silencieusement.
-  Résultat : la notification arrive le bon jour à la bonne heure, été comme hiver —
-  mais **pas forcément pile à 21h00**. Sur le plan gratuit de Vercel, un cron programmé
-  pour une heure donnée peut se déclencher n'importe quand dans l'heure qui suit (donc
-  entre 21h00 et 21h59). Un créneau à la minute près nécessite le plan payant de
-  Vercel.
+- **Le rappel quotidien** est déclenché par cron-job.org (pas par Vercel), pile à 21h00
+  heure de Paris, été comme hiver (voir section dédiée plus haut).
 
 ## Modifier la date de départ plus tard
 

@@ -175,7 +175,7 @@
     }
 
     document.getElementById('pills-remaining').textContent =
-      state.phase === 'pill' ? state.pillsRemainingInPack : '-';
+      state.phase === 'pill' ? state.pillsRemainingInPack : '—';
 
     document.getElementById('notif-status').textContent =
       state.hasPushSubscription && Notification.permission === 'granted' ? 'Actives' : 'Inactives';
