@@ -58,6 +58,13 @@ module.exports = async function handler(req, res) {
     });
   } catch (err) {
     console.error('test-notification error', err);
-    res.status(500).json({ error: err.message || 'Erreur serveur' });
+    // web-push renvoie souvent un message générique ; le vrai détail (401,
+    // 403, 410...) est dans statusCode/body du service de push lui-même.
+    res.status(500).json({
+      error: err.message || 'Erreur serveur',
+      pushStatusCode: err.statusCode || null,
+      pushBody: err.body || null,
+      pushEndpoint: err.endpoint || null,
+    });
   }
 };

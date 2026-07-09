@@ -89,6 +89,10 @@ module.exports = async function handler(req, res) {
     res.status(200).json({ ok: true, sent: message });
   } catch (err) {
     console.error('cron error', err);
-    res.status(500).json({ error: err.message || 'Erreur serveur' });
+    res.status(500).json({
+      error: err.message || 'Erreur serveur',
+      pushStatusCode: err.statusCode || null,
+      pushBody: err.body || null,
+    });
   }
 };

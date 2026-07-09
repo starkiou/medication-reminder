@@ -166,11 +166,11 @@
     if (state.phase === 'pill') {
       statusPill.textContent =
         state.cycleDay === 1
-          ? 'Jour 1/21 - reprise après la pause, prends ta pilule'
-          : `Jour ${state.cycleDay}/21 - prends ta pilule`;
+          ? 'Jour 1/21 — reprise après la pause, prends ta pilule'
+          : `Jour ${state.cycleDay}/21 — prends ta pilule`;
       statusPill.classList.remove('pause');
     } else {
-      statusPill.textContent = `Pause ${state.pauseDayNumber}/7 - repos`;
+      statusPill.textContent = `Pause ${state.pauseDayNumber}/7 — repos`;
       statusPill.classList.add('pause');
     }
 
@@ -186,7 +186,7 @@
     if (state.phase === 'pause') {
       const urgent = state.daysUntilResume === 1;
       resumeBanner.textContent = urgent
-        ? 'Dernier jour de pause - tu reprends la pilule demain !'
+        ? 'Dernier jour de pause — tu reprends la pilule demain !'
         : `Reprise le ${formatDateShort(state.nextPackStartDate)}`;
       resumeBanner.classList.remove('hidden');
       resumeBanner.classList.toggle('urgent', urgent);
