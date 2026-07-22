@@ -1,5 +1,5 @@
 const { getSupabase } = require('../lib/supabase');
-const { computeState, buildCycleDays, toISODate } = require('../lib/cycle');
+const { computeState, buildCycleDays, getParisTodayISO, dateFromISO, toISODate } = require('../lib/cycle');
 
 async function getRow(supabase) {
   const { data, error } = await supabase
@@ -40,7 +40,8 @@ module.exports = async function handler(req, res) {
 
       if (action === 'mark_forgot_yesterday') {
         const row = await getRow(supabase);
-        const yesterday = toISODate(new Date(Date.now() - 86400000));
+        const todayISO = getParisTodayISO();
+        const yesterday = toISODate(new Date(dateFromISO(todayISO).getTime() - 86400000));
         const missed = new Set(row?.missed_dates || []);
         missed.add(yesterday);
         const { error } = await supabase

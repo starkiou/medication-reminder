@@ -1,5 +1,5 @@
 const { getSupabase } = require('../lib/supabase');
-const { getPhaseForDate, toISODate } = require('../lib/cycle');
+const { getPhaseForDate, toISODate, getParisTodayISO, toParisISODate } = require('../lib/cycle');
 
 function addDaysISO(iso, days) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -29,11 +29,11 @@ module.exports = async function handler(req, res) {
     }
 
     const missed = new Set(row.missed_dates || []);
-    const todayISO = toISODate(new Date());
+    const todayISO = getParisTodayISO();
 
     // On ne remonte jamais avant la création réelle du compte : pas
     // d'historique fantaisiste antérieur à l'installation de l'app.
-    const createdISO = row.created_at ? toISODate(new Date(row.created_at)) : todayISO;
+    const createdISO = row.created_at ? toParisISODate(new Date(row.created_at)) : todayISO;
     const daysSinceCreation =
       Math.round((new Date(todayISO) - new Date(createdISO)) / 86400000) + 1;
 

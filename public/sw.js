@@ -20,6 +20,8 @@ self.addEventListener('push', (event) => {
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       tag: 'daily-reminder',
+      requireInteraction: true,
+      vibrate: [200, 100, 200],
     })
   );
 });
