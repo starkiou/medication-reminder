@@ -24,11 +24,13 @@ module.exports = async function handler(req, res) {
 
       const state = computeState(row.pack_start_date, row.pack_number_in_box);
       const days = buildCycleDays(state.effectivePackStartDate, state.cycleDay);
+      const todayISO = getParisTodayISO();
 
       res.status(200).json({
         onboarded: true,
         ...state,
         missedDates: row.missed_dates || [],
+        confirmedToday: (row.confirmed_dates || []).includes(todayISO),
         hasPushSubscription: !!row.push_subscription,
         days,
       });
@@ -47,6 +49,20 @@ module.exports = async function handler(req, res) {
         const { error } = await supabase
           .from('app_state')
           .update({ missed_dates: Array.from(missed), updated_at: new Date().toISOString() })
+          .eq('id', 1);
+        if (error) throw error;
+        res.status(200).json({ ok: true });
+        return;
+      }
+
+      if (action === 'confirm_taken_today') {
+        const row = await getRow(supabase);
+        const todayISO = getParisTodayISO();
+        const confirmed = new Set(row?.confirmed_dates || []);
+        confirmed.add(todayISO);
+        const { error } = await supabase
+          .from('app_state')
+          .update({ confirmed_dates: Array.from(confirmed), updated_at: new Date().toISOString() })
           .eq('id', 1);
         if (error) throw error;
         res.status(200).json({ ok: true });

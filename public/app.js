@@ -101,12 +101,35 @@
     }
   }
 
+  function buildFlower(ns, cx, cy, petalLen, petalWidth, color, opacity) {
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('transform', `translate(${cx.toFixed(2)},${cy.toFixed(2)})`);
+    g.setAttribute('opacity', opacity);
+
+    [0, 90, 180, 270].forEach((deg) => {
+      const petal = document.createElementNS(ns, 'ellipse');
+      petal.setAttribute('cx', '0');
+      petal.setAttribute('cy', (-petalLen / 2).toFixed(2));
+      petal.setAttribute('rx', (petalWidth / 2).toFixed(2));
+      petal.setAttribute('ry', (petalLen / 2).toFixed(2));
+      petal.setAttribute('transform', `rotate(${deg})`);
+      petal.setAttribute('fill', color);
+      g.appendChild(petal);
+    });
+
+    const centerDot = document.createElementNS(ns, 'circle');
+    centerDot.setAttribute('r', (petalWidth * 0.32).toFixed(2));
+    centerDot.setAttribute('fill', color);
+    g.appendChild(centerDot);
+
+    return g;
+  }
+
   function renderRing(days, cycleDay) {
     const svg = document.getElementById('ring-svg');
     const size = 260;
     const center = size / 2;
     const radius = 108;
-    const dotRadius = 6.5;
     const ns = 'http://www.w3.org/2000/svg';
 
     svg.innerHTML = '';
@@ -116,37 +139,18 @@
       const angle = (i / total) * 2 * Math.PI - Math.PI / 2; // jour 1 en haut, sens horaire
       const cx = center + radius * Math.cos(angle);
       const cy = center + radius * Math.sin(angle);
-
-      const circle = document.createElementNS(ns, 'circle');
-      circle.setAttribute('cx', cx.toFixed(2));
-      circle.setAttribute('cy', cy.toFixed(2));
-
-      let r = dotRadius;
-      let fill = 'rgba(180, 169, 201, 0.25)'; // future, neutre
-      let stroke = 'none';
-
       const color = day.phase === 'pill' ? 'var(--rose)' : 'var(--gold)';
 
-      if (day.status === 'past') {
-        fill = color;
-      } else if (day.status === 'today') {
-        fill = color;
-        r = dotRadius + 2.5;
-        stroke = color;
+      if (day.status === 'today') {
+        // Léger halo derrière la fleur du jour, pour un effet de floraison.
+        svg.appendChild(buildFlower(ns, cx, cy, 22, 15, color, 0.35));
+        svg.appendChild(buildFlower(ns, cx, cy, 13, 8.5, color, 1));
+      } else if (day.status === 'past') {
+        svg.appendChild(buildFlower(ns, cx, cy, 9, 6, color, 0.95));
       } else {
-        // future : contour de la couleur de phase, centre vide
-        fill = 'transparent';
-        stroke = color;
+        // future : fleur pas encore éclose, en pointillé discret
+        svg.appendChild(buildFlower(ns, cx, cy, 9, 6, color, 0.28));
       }
-
-      circle.setAttribute('r', r.toFixed(2));
-      circle.setAttribute('fill', fill);
-      if (stroke !== 'none') {
-        circle.setAttribute('stroke', stroke);
-        circle.setAttribute('stroke-width', day.status === 'today' ? '2' : '1');
-        circle.setAttribute('stroke-opacity', day.status === 'today' ? '0.5' : '0.7');
-      }
-      svg.appendChild(circle);
     });
   }
 
@@ -181,6 +185,20 @@
       state.hasPushSubscription && Notification.permission === 'granted' ? 'Actives' : 'Inactives';
 
     document.getElementById('new-box-banner').classList.toggle('hidden', !state.needsNewBox);
+
+    const confirmBtn = document.getElementById('confirm-btn');
+    if (state.phase === 'pill') {
+      confirmBtn.classList.remove('hidden');
+      if (state.confirmedToday) {
+        confirmBtn.textContent = '✓ Prise confirmée aujourd\'hui';
+        confirmBtn.disabled = true;
+      } else {
+        confirmBtn.textContent = "✓ J'ai pris ma pilule aujourd'hui";
+        confirmBtn.disabled = false;
+      }
+    } else {
+      confirmBtn.classList.add('hidden');
+    }
 
     const resumeBanner = document.getElementById('resume-banner');
     if (state.phase === 'pause') {
@@ -352,6 +370,24 @@
     };
   }
 
+  function bindConfirmButton() {
+    document.getElementById('confirm-btn').onclick = async () => {
+      try {
+        const res = await fetch('/api/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'confirm_taken_today' }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Erreur serveur (${res.status})`);
+        await refreshMain();
+      } catch (err) {
+        console.error(err);
+        showDebugError(err.message || String(err));
+      }
+    };
+  }
+
   function bindForgotButton() {
     document.getElementById('forgot-btn').onclick = async () => {
       await fetch('/api/state', {
@@ -391,6 +427,7 @@
     try {
       await registerServiceWorker();
       bindNotifButton();
+      bindConfirmButton();
       bindForgotButton();
       bindSettingsButton();
       bindHistoryButtons();

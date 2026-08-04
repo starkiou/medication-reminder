@@ -91,6 +91,38 @@ tant que le bon `Authorization` est fourni. Tu peux vérifier l'historique des
 exécutions directement sur le dashboard de cron-job.org pour confirmer que ça se
 déclenche bien chaque jour.
 
+## Nouveauté : rappel de secours à 22h + confirmation de prise
+
+Un bouton **"✓ J'ai pris ma pilule aujourd'hui"** apparaît sur l'écran principal les
+jours de prise. Si elle ne l'a pas cliqué avant 22h, une **deuxième notification** part
+automatiquement pour éviter un oubli. Si elle l'a déjà confirmé, rien ne se passe à 22h.
+
+**Nouvelle migration Supabase à lancer** (SQL Editor) :
+
+```sql
+alter table app_state add column if not exists confirmed_dates date[] not null default '{}';
+```
+
+**Deuxième cronjob à créer sur cron-job.org**, en plus de celui à 21h :
+
+- **URL** : `https://ton-app.vercel.app/api/cron-backup`
+- **Schedule** : tous les jours à **22:00**, timezone `Europe/Paris`
+- **Header** : `Authorization: Bearer TA_VALEUR_DE_CRON_SECRET` (la même clé que l'autre
+  cronjob)
+
+Pour tester ce rappel de secours sans attendre 22h : ajoute `&backup=1` à l'URL de test
+habituelle :
+```
+https://ton-app.vercel.app/api/test-notification?key=TA_CLE&backup=1
+```
+
+## Nouveauté : thème floral
+
+Petite touche visuelle demandée : les points de l'anneau des 28 jours sont maintenant de
+petites fleurs plutôt que de simples ronds, l'icône de l'app est une rosace, et un
+symbole ✿ accompagne le nom du médicament. Aucune migration ni configuration
+nécessaire, uniquement des fichiers `app.js`, `styles.css`, `index.html` et les icônes.
+
 ## Ce dont tu as besoin (tout est gratuit)
 
 - Un compte [GitHub](https://github.com) (tu l'as déjà)

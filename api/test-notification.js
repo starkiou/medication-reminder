@@ -41,7 +41,12 @@ module.exports = async function handler(req, res) {
     }
 
     const state = computeState(row.pack_start_date, row.pack_number_in_box);
-    const message = getNotificationMessage(state);
+    const message = req.query.backup
+      ? {
+          title: 'Rappel de secours 🌸',
+          body: "Tu n'as pas encore confirmé avoir pris ta pilule ce soir — n'oublie pas !",
+        }
+      : getNotificationMessage(state);
 
     webpush.setVapidDetails(
       process.env.VAPID_SUBJECT || 'mailto:contact@example.com',

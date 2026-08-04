@@ -68,7 +68,7 @@
 
   <div class="card med-card">
     <p class="eyebrow">Médicament</p>
-    <h2 class="med-name">Ma pilule</h2>
+    <h2 class="med-name"><span class="med-flower" aria-hidden="true">✿</span> Ma pilule</h2>
     <p class="med-dosage">Dosage du médicament</p>
     <p class="med-detail">3 plaquettes de 21 comprimés enrobés</p>
     <p class="med-cycle">Cycle : 21 jours de prise, 7 jours de pause</p>
@@ -110,11 +110,12 @@
     </div>
   </div>
 
+  <button id="confirm-btn" class="btn-primary hidden">✓ J'ai pris ma pilule aujourd'hui</button>
   <button id="forgot-btn" class="btn-secondary">J'ai oublié hier</button>
   <button id="history-btn" class="btn-secondary">Voir l'historique</button>
   <button id="settings-btn" class="btn-ghost">Modifier la date de départ</button>
 
-  <p class="footer-note">Rappel envoyé chaque jour à 21h. Ce suivi ne remplace pas la notice de ton médicament.</p>
+  <p class="footer-note">Rappel à 21h, puis un rappel de secours à 22h si la prise n'a pas été confirmée. Ce suivi ne remplace pas la notice de ton médicament.</p>
 </div>
 
 <!-- Historique -->

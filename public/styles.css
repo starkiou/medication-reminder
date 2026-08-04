@@ -74,6 +74,11 @@ p { margin: 0; line-height: 1.5; }
   margin: 2px 0 6px;
 }
 
+.med-flower {
+  color: var(--rose);
+  font-size: 0.85em;
+}
+
 .med-dosage {
   color: var(--text);
   font-size: 14px;
@@ -202,6 +207,11 @@ button {
 .btn-primary {
   background: var(--rose);
   color: #2A140F;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .btn-secondary {
