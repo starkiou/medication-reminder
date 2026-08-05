@@ -415,11 +415,20 @@
   }
 
   async function init() {
+    const installBypassBtn = document.getElementById('install-bypass-btn');
+    if (installBypassBtn) {
+      installBypassBtn.onclick = () => proceedPastInstallGate();
+    }
+
     if (needsInstallGate()) {
       showScreen('install');
       return;
     }
 
+    await proceedPastInstallGate();
+  }
+
+  async function proceedPastInstallGate() {
     try {
       await registerServiceWorker();
       bindNotifButton();
