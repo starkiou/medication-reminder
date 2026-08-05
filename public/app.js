@@ -415,17 +415,22 @@
   }
 
   async function init() {
-    const installBypassBtn = document.getElementById('install-bypass-btn');
-    if (installBypassBtn) {
-      installBypassBtn.onclick = () => proceedPastInstallGate();
-    }
+    try {
+      const installBypassBtn = document.getElementById('install-bypass-btn');
+      if (installBypassBtn) {
+        installBypassBtn.onclick = () => proceedPastInstallGate();
+      }
 
-    if (needsInstallGate()) {
-      showScreen('install');
-      return;
-    }
+      if (needsInstallGate()) {
+        showScreen('install');
+        return;
+      }
 
-    await proceedPastInstallGate();
+      await proceedPastInstallGate();
+    } catch (err) {
+      console.error(err);
+      showDebugError(err.message || String(err));
+    }
   }
 
   async function proceedPastInstallGate() {
