@@ -1,6 +1,6 @@
 const webpush = require('web-push');
 const { getSupabase } = require('../lib/supabase');
-const { computeState, getNotificationMessage } = require('../lib/cycle');
+const { computeState, getNotificationMessage, getParisTodayISO } = require('../lib/cycle');
 
 function currentParisHour() {
   const formatter = new Intl.DateTimeFormat('fr-FR', {
@@ -59,6 +59,12 @@ module.exports = async function handler(req, res) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', 1);
+    }
+
+    // Si elle a déjà confirmé la prise aujourd'hui avant 21h, inutile de la relancer.
+    if (state.phase === 'pill' && (row.confirmed_dates || []).includes(getParisTodayISO())) {
+      res.status(200).json({ skipped: true, reason: 'déjà confirmé aujourd\'hui' });
+      return;
     }
 
     webpush.setVapidDetails(

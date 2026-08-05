@@ -31,6 +31,18 @@ body {
   align-items: center;
   justify-content: center;
   padding: calc(24px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom));
+  position: relative;
+}
+
+.bg-decor {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--bg);
+  background-image: url('/bg-sakura.jpg');
+  background-repeat: no-repeat;
+  background-position: top center;
+  background-size: cover;
 }
 
 .screen {
