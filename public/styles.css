@@ -72,7 +72,9 @@ p { margin: 0; line-height: 1.5; }
 }
 
 .card {
-  background: var(--surface);
+  background: rgba(42, 36, 64, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-radius: var(--radius);
   padding: 24px;
 }
