@@ -17,7 +17,6 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -31,13 +30,6 @@ body {
   align-items: center;
   justify-content: center;
   padding: calc(24px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom));
-  position: relative;
-}
-
-.bg-decor {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
   background-color: var(--bg);
   background-image: url('/bg-sakura.jpg');
   background-repeat: no-repeat;
