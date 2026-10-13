@@ -11,7 +11,7 @@ create table if not exists app_state (
   updated_at timestamptz not null default now()
 );
 
--- Ligne unique (une seule personne) : à ajuster si besoin avant le premier lancement
+-- Ligne unique (le suivi concerne une seule personne) : à ajuster si besoin avant le premier lancement
 insert into app_state (id, pack_start_date, pack_number_in_box)
 values (1, current_date, 1)
 on conflict (id) do nothing;

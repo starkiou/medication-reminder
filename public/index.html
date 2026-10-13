@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pilule</title>
+<title>Rappel de prise</title>
 
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#1F1A2E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Pilule">
+<meta name="apple-mobile-web-app-title" content="Rappel">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" href="/icons/icon-192.png">
 
@@ -30,6 +30,23 @@
   </div>
 </div>
 
+<!-- Code d'accès (demandé une seule fois par appareil) -->
+<div id="access-screen" class="screen hidden">
+  <div class="card form-stack">
+    <p class="eyebrow">Accès protégé</p>
+    <h2>Entre le code d'accès</h2>
+    <p>Ce suivi est personnel. Le code t'a été donné par la personne qui a installé l'application ; il n'est demandé qu'une fois sur cet appareil.</p>
+    <form id="access-form" class="form-stack">
+      <label>
+        Code d'accès
+        <input type="password" id="access-code" autocomplete="off" autocapitalize="off" required>
+      </label>
+      <button type="submit" class="btn-primary">Valider</button>
+    </form>
+    <p id="access-error" class="footer-note hidden"></p>
+  </div>
+</div>
+
 <!-- Onboarding -->
 <div id="onboarding-screen" class="screen hidden">
   <div class="card form-stack">
@@ -41,12 +58,8 @@
         <input type="date" id="pack-start-date" required>
       </label>
       <label>
-        Quelle plaquette de la boîte (sur 3) ?
-        <select id="pack-number">
-          <option value="1">Plaquette 1</option>
-          <option value="2">Plaquette 2</option>
-          <option value="3">Plaquette 3</option>
-        </select>
+        <span id="pack-number-label">Quelle plaquette de la boîte ?</span>
+        <select id="pack-number"></select>
       </label>
       <button type="submit" class="btn-primary">Continuer</button>
     </form>
@@ -58,7 +71,7 @@
   <div class="card form-stack center-text">
     <p class="eyebrow">Dernière étape</p>
     <h2>Active les notifications</h2>
-    <p>Tu recevras un rappel chaque jour à 21h, même téléphone verrouillé.</p>
+    <p id="notif-intro">Tu recevras un rappel chaque jour, même téléphone verrouillé.</p>
     <button id="enable-notif-btn" class="btn-primary">Activer les notifications</button>
     <p id="notif-error" class="footer-note hidden"></p>
   </div>
@@ -69,10 +82,9 @@
 
   <div class="card med-card">
     <p class="eyebrow">Médicament</p>
-    <h2 class="med-name"><span class="med-flower" aria-hidden="true">✿</span> Ma pilule</h2>
-    <p class="med-dosage">Dosage du médicament</p>
-    <p class="med-detail">3 plaquettes de 21 comprimés enrobés</p>
-    <p class="med-cycle">Cycle : 21 jours de prise, 7 jours de pause</p>
+    <h2 class="med-name"><span class="med-flower" aria-hidden="true">✿</span> <span id="med-name">Mon traitement</span></h2>
+    <div id="med-details"></div>
+    <p class="med-cycle" id="med-cycle"></p>
   </div>
 
   <div class="card center-text">
@@ -82,15 +94,15 @@
       <svg id="ring-svg" viewBox="0 0 260 260"></svg>
       <div class="ring-center">
         <div class="big" id="ring-day">1</div>
-        <div class="small" id="ring-total">/ 28 jours</div>
+        <div class="small" id="ring-total"></div>
       </div>
     </div>
 
-    <div id="status-pill" class="status-pill">Prends ta pilule</div>
+    <div id="status-pill" class="status-pill"></div>
 
     <div class="legend">
       <span><span class="dot" style="background:var(--rose)"></span>Prise</span>
-      <span><span class="dot" style="background:var(--gold)"></span>Pause</span>
+      <span id="legend-pause"><span class="dot" style="background:var(--gold)"></span>Pause</span>
     </div>
   </div>
 
@@ -103,7 +115,7 @@
   <div class="row">
     <div class="stat">
       <div class="label">Comprimés restants (plaquette)</div>
-      <div class="value" id="pills-remaining">21</div>
+      <div class="value" id="pills-remaining">—</div>
     </div>
     <div class="stat">
       <div class="label">Notifications</div>
@@ -111,12 +123,12 @@
     </div>
   </div>
 
-  <button id="confirm-btn" class="btn-primary hidden">✓ J'ai pris ma pilule aujourd'hui</button>
+  <button id="confirm-btn" class="btn-primary hidden"></button>
   <button id="forgot-btn" class="btn-secondary">J'ai oublié hier</button>
   <button id="history-btn" class="btn-secondary">Voir l'historique</button>
   <button id="settings-btn" class="btn-ghost">Modifier la date de départ</button>
 
-  <p class="footer-note">Rappel à 21h, puis un rappel de secours à 22h si la prise n'a pas été confirmée. Ce suivi ne remplace pas la notice de ton médicament.</p>
+  <p class="footer-note" id="footer-note">Ce suivi ne remplace pas la notice de ton médicament.</p>
 </div>
 
 <!-- Historique -->

@@ -1,75 +1,37 @@
-const webpush = require('web-push');
-const { getSupabase } = require('../lib/supabase');
-const { computeState, getNotificationMessage } = require('../lib/cycle');
+const { getConfig } = require('../lib/config');
+const { computeState, getNotificationMessage, getBackupMessage, getTodayISO } = require('../lib/cycle');
+const { getRow } = require('../lib/store');
+const { sendPush } = require('../lib/push');
+const { requireCronSecret } = require('../lib/auth');
+const { serverError } = require('../lib/http');
+const { now } = require('../lib/clock');
 
-// Endpoint de TEST uniquement : envoie la notification tout de suite, sans
-// vérifier l'heure. Protégé par la même clé que le cron (CRON_SECRET), passée
-// en query string pour pouvoir être appelée simplement depuis un navigateur :
-//   https://ton-app.vercel.app/api/test-notification?key=TA_CLE
+// Endpoint de TEST : envoie la notification tout de suite, sans vérifier
+// l'heure. Protégé par CRON_SECRET, envoyé dans l'en-tête Authorization (et non
+// dans l'URL, qui finit dans les journaux et l'historique du navigateur) :
+//   curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/test-notification
+// Ajouter ?backup=1 pour recevoir le rappel de secours.
 module.exports = async function handler(req, res) {
-  const requiredKey = process.env.CRON_SECRET;
-
-  if (!requiredKey) {
-    res.status(400).json({
-      error:
-        "Définis la variable d'environnement CRON_SECRET sur Vercel avant d'utiliser cet endpoint de test (sinon n'importe qui connaissant l'URL pourrait déclencher une notification).",
-    });
-    return;
-  }
-
-  if (req.query.key !== requiredKey) {
-    res.status(401).json({ error: 'Clé invalide' });
-    return;
-  }
+  if (!requireCronSecret(req, res)) return;
 
   try {
-    const supabase = getSupabase();
-    const { data: row, error } = await supabase
-      .from('app_state')
-      .select('*')
-      .eq('id', 1)
-      .maybeSingle();
-
-    if (error) throw error;
+    const config = getConfig();
+    const row = await getRow();
     if (!row) {
-      res.status(200).json({ skipped: true, reason: "Onboarding pas encore fait dans l'app" });
+      res.status(200).json({ skipped: true, reason: "le suivi n'est pas encore configuré" });
       return;
     }
     if (!row.push_subscription) {
-      res.status(200).json({ skipped: true, reason: "Pas encore d'abonnement push enregistré" });
+      res.status(200).json({ skipped: true, reason: "pas d'abonnement push" });
       return;
     }
 
-    const state = computeState(row.pack_start_date, row.pack_number_in_box);
-    const message = req.query.backup
-      ? {
-          title: 'Rappel de secours 🌸',
-          body: "Tu n'as pas encore confirmé avoir pris ta pilule ce soir — n'oublie pas !",
-        }
-      : getNotificationMessage(state);
+    const state = computeState(row.pack_start_date, row.pack_number_in_box, getTodayISO(config, now()), config);
+    const message = (req.query || {}).backup ? getBackupMessage(config) : getNotificationMessage(state, config);
 
-    webpush.setVapidDetails(
-      process.env.VAPID_SUBJECT || 'mailto:contact@example.com',
-      process.env.VAPID_PUBLIC_KEY,
-      process.env.VAPID_PRIVATE_KEY
-    );
-
-    await webpush.sendNotification(row.push_subscription, JSON.stringify(message));
-
-    res.status(200).json({
-      ok: true,
-      sent: message,
-      note: "Notification envoyée immédiatement, sans tenir compte de l'heure (endpoint de test).",
-    });
+    const delivered = await sendPush(row.push_subscription, message);
+    res.status(200).json({ ok: true, delivered, sent: message });
   } catch (err) {
-    console.error('test-notification error', err);
-    // web-push renvoie souvent un message générique ; le vrai détail (401,
-    // 403, 410...) est dans statusCode/body du service de push lui-même.
-    res.status(500).json({
-      error: err.message || 'Erreur serveur',
-      pushStatusCode: err.statusCode || null,
-      pushBody: err.body || null,
-      pushEndpoint: err.endpoint || null,
-    });
+    serverError(res, 'test-notification', err);
   }
 };

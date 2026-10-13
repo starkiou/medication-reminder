@@ -1,7 +1,7 @@
 {
-  "name": "Pilule",
-  "short_name": "Pilule",
-  "description": "Suivi et rappel quotidien de la pilule",
+  "name": "Rappel de prise",
+  "short_name": "Rappel",
+  "description": "Suivi d'un traitement cyclique et rappel quotidien",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

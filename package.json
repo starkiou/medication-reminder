@@ -1,8 +1,15 @@
 {
   "name": "tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Suivi de pilule avec rappel quotidien à 21h",
+  "description": "PWA de suivi d'un traitement cyclique avec rappels push quotidiens",
+  "scripts": {
+    "test": "node --test",
+    "dev": "node scripts/dev-server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
     "web-push": "^3.6.7"

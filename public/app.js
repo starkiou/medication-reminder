@@ -1,8 +1,11 @@
 (function () {
   'use strict';
 
+  const ACCESS_CODE_KEY = 'accessCode';
+
   const screens = {
     install: document.getElementById('install-screen'),
+    access: document.getElementById('access-screen'),
     onboarding: document.getElementById('onboarding-screen'),
     notif: document.getElementById('notif-screen'),
     main: document.getElementById('main-screen'),
@@ -60,13 +63,64 @@
   let pendingPackStartDate = null;
   let pendingPackNumber = null;
 
-  async function fetchState() {
-    const res = await fetch('/api/state');
-    const data = await res.json();
+  // Réglages du suivi (durées du cycle, heure du rappel, nom du médicament),
+  // envoyés par le serveur avec l'état.
+  let config = null;
+
+  /** Erreur levée quand le serveur refuse le code d'accès. */
+  class AccessDeniedError extends Error {}
+
+  function getAccessCode() {
+    try {
+      return window.localStorage.getItem(ACCESS_CODE_KEY) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function setAccessCode(code) {
+    try {
+      window.localStorage.setItem(ACCESS_CODE_KEY, code);
+    } catch (e) {
+      // stockage indisponible : le code sera redemandé à la prochaine ouverture
+    }
+  }
+
+  async function requestJson(url, options = {}) {
+    const headers = { ...(options.headers || {}), 'X-Access-Code': getAccessCode() };
+    const res = await fetch(url, { ...options, headers });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      throw new AccessDeniedError(data.error || 'Non autorisé');
+    }
     if (!res.ok) {
       throw new Error(data.error || `Erreur serveur (${res.status})`);
     }
     return data;
+  }
+
+  async function requestJsonPost(url, payload) {
+    return requestJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /** Affiche l'erreur, ou l'écran du code d'accès si c'est lui qui est refusé. */
+  function handleError(err) {
+    console.error(err);
+    if (err instanceof AccessDeniedError) {
+      showAccessScreen(getAccessCode() !== '');
+      return;
+    }
+    showDebugError(err.message || String(err));
+  }
+
+  async function fetchState() {
+    const state = await requestJson('/api/state');
+    if (state.config) applyConfig(state.config);
+    return state;
   }
 
   async function registerServiceWorker() {
@@ -76,7 +130,7 @@
 
   async function subscribeToPush(packStartDate, packNumberInBox) {
     const reg = await navigator.serviceWorker.ready;
-    const { publicKey } = await fetch('/api/vapid-public-key').then((r) => r.json());
+    const { publicKey } = await requestJson('/api/vapid-public-key');
 
     let subscription = await reg.pushManager.getSubscription();
     if (!subscription) {
@@ -86,22 +140,57 @@
       });
     }
 
-    await subscribeSubscriptionOnServer(subscription, packStartDate, packNumberInBox);
+    await requestJsonPost('/api/subscribe', { subscription, packStartDate, packNumberInBox });
   }
 
-  async function subscribeSubscriptionOnServer(subscription, packStartDate, packNumberInBox) {
-    const res = await fetch('/api/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription, packStartDate, packNumberInBox }),
+  function formatHour(hour) {
+    return `${hour}h`;
+  }
+
+  /** Remplit tous les textes qui dépendent des réglages du suivi. */
+  function applyConfig(newConfig) {
+    config = newConfig;
+
+    document.getElementById('med-name').textContent = config.medName || 'Mon traitement';
+
+    const details = document.getElementById('med-details');
+    details.innerHTML = '';
+    config.medDetails.forEach((line, i) => {
+      const p = document.createElement('p');
+      p.className = i === 0 ? 'med-dosage' : 'med-detail';
+      p.textContent = line;
+      details.appendChild(p);
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `Erreur serveur (${res.status})`);
+
+    document.getElementById('med-cycle').textContent = config.pauseDays > 0
+      ? `Cycle : ${config.pillDays} jours de prise, ${config.pauseDays} jours de pause`
+      : `Cycle : ${config.pillDays} jours de prise, sans pause`;
+    document.getElementById('legend-pause').classList.toggle('hidden', config.pauseDays === 0);
+
+    document.getElementById('pack-number-label').textContent =
+      `Quelle plaquette de la boîte (sur ${config.packsPerBox}) ?`;
+    const select = document.getElementById('pack-number');
+    const previous = select.value;
+    select.innerHTML = '';
+    for (let n = 1; n <= config.packsPerBox; n++) {
+      const option = document.createElement('option');
+      option.value = String(n);
+      option.textContent = `Plaquette ${n}`;
+      select.appendChild(option);
     }
+    if (previous) select.value = previous;
+
+    document.getElementById('notif-intro').textContent =
+      `Tu recevras un rappel chaque jour à ${formatHour(config.reminderHour)}, même téléphone verrouillé.`;
+
+    const backup = config.backupHour === null
+      ? ''
+      : `, puis un rappel de secours à ${formatHour(config.backupHour)} si la prise n'a pas été confirmée`;
+    document.getElementById('footer-note').textContent =
+      `Rappel à ${formatHour(config.reminderHour)}${backup}. Ce suivi ne remplace pas la notice de ton médicament.`;
   }
 
-  function renderRing(days, cycleDay) {
+  function renderRing(days) {
     const svg = document.getElementById('ring-svg');
     const size = 260;
     const center = size / 2;
@@ -156,21 +245,22 @@
   }
 
   function renderMain(state) {
-    document.getElementById('pack-label').textContent = `Plaquette ${state.packNumberInBox} / 3`;
+    document.getElementById('pack-label').textContent =
+      `Plaquette ${state.packNumberInBox} / ${config.packsPerBox}`;
     document.getElementById('ring-day').textContent = state.cycleDay;
-    document.getElementById('ring-total').textContent = '/ 28 jours';
+    document.getElementById('ring-total').textContent = `/ ${config.cycleLength} jours`;
 
-    renderRing(state.days, state.cycleDay);
+    renderRing(state.days);
 
     const statusPill = document.getElementById('status-pill');
     if (state.phase === 'pill') {
       statusPill.textContent =
         state.cycleDay === 1
-          ? 'Jour 1/21 — reprise après la pause, prends ta pilule'
-          : `Jour ${state.cycleDay}/21 — prends ta pilule`;
+          ? `Jour 1/${config.pillDays} — reprise après la pause, prends ${config.yours}`
+          : `Jour ${state.cycleDay}/${config.pillDays} — prends ${config.yours}`;
       statusPill.classList.remove('pause');
     } else {
-      statusPill.textContent = `Pause ${state.pauseDayNumber}/7 — repos`;
+      statusPill.textContent = `Pause ${state.pauseDayNumber}/${config.pauseDays} — repos`;
       statusPill.classList.add('pause');
     }
 
@@ -189,7 +279,7 @@
         confirmBtn.textContent = '✓ Prise confirmée aujourd\'hui';
         confirmBtn.disabled = true;
       } else {
-        confirmBtn.textContent = "✓ J'ai pris ma pilule aujourd'hui";
+        confirmBtn.textContent = `✓ J'ai pris ${config.mine} aujourd'hui`;
         confirmBtn.disabled = false;
       }
     } else {
@@ -200,7 +290,7 @@
     if (state.phase === 'pause') {
       const urgent = state.daysUntilResume === 1;
       resumeBanner.textContent = urgent
-        ? 'Dernier jour de pause — tu reprends la pilule demain !'
+        ? `Dernier jour de pause — tu reprends ${config.the} demain !`
         : `Reprise le ${formatDateShort(state.nextPackStartDate)}`;
       resumeBanner.classList.remove('hidden');
       resumeBanner.classList.toggle('urgent', urgent);
@@ -217,12 +307,7 @@
   }
 
   async function fetchHistory() {
-    const res = await fetch('/api/history');
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `Erreur serveur (${res.status})`);
-    }
-    return data;
+    return requestJson('/api/history');
   }
 
   const DAY_NAMES = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
@@ -231,6 +316,18 @@
     const [y, m, d] = iso.split('-').map(Number);
     const date = new Date(Date.UTC(y, m - 1, d));
     return `${DAY_NAMES[date.getUTCDay()]} ${formatDateShort(iso)}/${y}`;
+  }
+
+  /** Ligne « nom du médicament + heure du rappel » de l'historique. */
+  function buildIntakeCell(main) {
+    const title = document.createElement('div');
+    title.className = 'history-row-title';
+    title.textContent = config.medName || 'Prise';
+    const time = document.createElement('div');
+    time.className = 'history-row-time';
+    time.textContent = `${String(config.reminderHour).padStart(2, '0')}:00`;
+    main.appendChild(title);
+    main.appendChild(time);
   }
 
   function renderHistory(data) {
@@ -263,17 +360,20 @@
 
       if (day.missed) {
         icon.style.background = '#E0555A';
-        main.innerHTML = '<div class="history-row-title">Ma pilule</div><div class="history-row-time">21:00</div>';
+        buildIntakeCell(main);
         status.textContent = '✕ Oublié';
         status.classList.add('missed');
       } else if (day.phase === 'pill') {
         icon.style.background = 'var(--rose)';
-        main.innerHTML = '<div class="history-row-title">Ma pilule</div><div class="history-row-time">21:00</div>';
+        buildIntakeCell(main);
         status.textContent = '✓ Prise';
         status.classList.add('taken');
       } else {
         icon.style.background = 'var(--gold)';
-        main.innerHTML = '<div class="history-row-title">Jour de pause</div>';
+        const title = document.createElement('div');
+        title.className = 'history-row-title';
+        title.textContent = 'Jour de pause';
+        main.appendChild(title);
         status.textContent = 'Pause';
         status.classList.add('pause');
       }
@@ -292,8 +392,7 @@
         renderHistory(data);
         showScreen('history');
       } catch (err) {
-        console.error(err);
-        showDebugError(err.message || String(err));
+        handleError(err);
       }
     };
 
@@ -322,17 +421,14 @@
       if (prefill) {
         // Re-configuration depuis l'écran principal : on a déjà un abonnement push
         try {
-          const res = await fetch('/api/state', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'update_pack_start', packStartDate, packNumberInBox }),
+          await requestJsonPost('/api/state', {
+            action: 'update_pack_start',
+            packStartDate,
+            packNumberInBox,
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || `Erreur serveur (${res.status})`);
           await refreshMain();
         } catch (err) {
-          console.error(err);
-          showDebugError(err.message || String(err));
+          handleError(err);
         }
         return;
       }
@@ -359,6 +455,10 @@
         await subscribeToPush(pendingPackStartDate, pendingPackNumber);
         await refreshMain();
       } catch (err) {
+        if (err instanceof AccessDeniedError) {
+          handleError(err);
+          return;
+        }
         errorEl.textContent = err.message || 'Une erreur est survenue, réessaie.';
         errorEl.classList.remove('hidden');
         console.error(err);
@@ -369,32 +469,25 @@
   function bindConfirmButton() {
     document.getElementById('confirm-btn').onclick = async () => {
       try {
-        const res = await fetch('/api/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'confirm_taken_today' }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `Erreur serveur (${res.status})`);
+        await requestJsonPost('/api/state', { action: 'confirm_taken_today' });
         await refreshMain();
       } catch (err) {
-        console.error(err);
-        showDebugError(err.message || String(err));
+        handleError(err);
       }
     };
   }
 
   function bindForgotButton() {
     document.getElementById('forgot-btn').onclick = async () => {
-      await fetch('/api/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'mark_forgot_yesterday' }),
-      });
-      const btn = document.getElementById('forgot-btn');
-      const original = btn.textContent;
-      btn.textContent = 'Noté ✓';
-      setTimeout(() => (btn.textContent = original), 1500);
+      try {
+        await requestJsonPost('/api/state', { action: 'mark_forgot_yesterday' });
+        const btn = document.getElementById('forgot-btn');
+        const original = btn.textContent;
+        btn.textContent = 'Noté ✓';
+        setTimeout(() => (btn.textContent = original), 1500);
+      } catch (err) {
+        handleError(err);
+      }
     };
   }
 
@@ -408,9 +501,25 @@
         });
         showScreen('onboarding');
       } catch (err) {
-        console.error(err);
-        showDebugError(err.message || String(err));
+        handleError(err);
       }
+    };
+  }
+
+  /** Demande le code d'accès ; `rejected` signale qu'un code vient d'être refusé. */
+  function showAccessScreen(rejected) {
+    const errorEl = document.getElementById('access-error');
+    errorEl.textContent = 'Code incorrect, réessaie.';
+    errorEl.classList.toggle('hidden', !rejected);
+    document.getElementById('access-code').value = '';
+    showScreen('access');
+  }
+
+  function bindAccessForm() {
+    document.getElementById('access-form').onsubmit = async (e) => {
+      e.preventDefault();
+      setAccessCode(document.getElementById('access-code').value.trim());
+      await start();
     };
   }
 
@@ -428,20 +537,28 @@
 
       await proceedPastInstallGate();
     } catch (err) {
-      console.error(err);
-      showDebugError(err.message || String(err));
+      handleError(err);
     }
   }
 
   async function proceedPastInstallGate() {
     try {
       await registerServiceWorker();
+      bindAccessForm();
       bindNotifButton();
       bindConfirmButton();
       bindForgotButton();
       bindSettingsButton();
       bindHistoryButtons();
+      await start();
+    } catch (err) {
+      handleError(err);
+    }
+  }
 
+  /** Charge l'état et affiche l'écran qui convient. Rejouée après la saisie du code d'accès. */
+  async function start() {
+    try {
       const state = await fetchState();
 
       if (!state.onboarded) {
@@ -459,8 +576,7 @@
 
       renderMain(state);
     } catch (err) {
-      console.error(err);
-      showDebugError(err.message || String(err));
+      handleError(err);
     }
   }
 

@@ -7,7 +7,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Pilule', body: "N'oublie pas ta pilule" };
+  let data = { title: 'Rappel', body: "N'oublie pas ta prise du jour" };
   try {
     if (event.data) data = event.data.json();
   } catch (e) {
