@@ -347,8 +347,10 @@
       label.textContent = day.isToday ? "Aujourd'hui" : formatDayLabel(day.date);
       list.appendChild(label);
 
-      const row = document.createElement('div');
-      row.className = 'history-row' + (day.isToday ? ' today' : '');
+      // Les jours de prise se corrigent d'un appui ; les jours de pause n'ont rien à corriger
+      const editable = day.phase === 'pill';
+      const row = document.createElement(editable ? 'button' : 'div');
+      row.className = 'history-row' + (day.isToday ? ' today' : '') + (editable ? ' editable' : '');
 
       const icon = document.createElement('div');
       icon.className = 'history-row-icon';
@@ -389,7 +391,52 @@
       row.appendChild(main);
       row.appendChild(status);
       list.appendChild(row);
+
+      if (editable) {
+        const current = day.missed ? 'missed' : day.confirmed ? 'taken' : 'unknown';
+        row.type = 'button';
+        row.setAttribute('aria-expanded', 'false');
+        row.onclick = () => toggleDayEditor(row, day.date, current);
+      }
     });
+  }
+
+  const DAY_CHOICES = [
+    { status: 'taken', label: '✓ Prise' },
+    { status: 'missed', label: '✕ Oubliée' },
+    { status: 'unknown', label: 'Je ne sais plus' },
+  ];
+
+  /** Ouvre ou referme, sous une journée, les boutons qui permettent de la corriger. */
+  function toggleDayEditor(row, dateISO, current) {
+    const next = row.nextElementSibling;
+    const wasOpen = !!next && next.classList.contains('history-editor');
+    document.querySelectorAll('.history-editor').forEach((el) => el.remove());
+    document.querySelectorAll('.history-row.editable').forEach((el) => el.setAttribute('aria-expanded', 'false'));
+    if (wasOpen) return;
+
+    const editor = document.createElement('div');
+    editor.className = 'history-editor';
+    DAY_CHOICES.forEach((choice) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'history-choice' + (choice.status === current ? ' current' : '');
+      btn.textContent = choice.label;
+      btn.onclick = async () => {
+        try {
+          await requestJsonPost('/api/state', { action: 'set_day_status', date: dateISO, status: choice.status });
+          // On recharge l'historique sans perdre l'endroit où on en était dans la liste
+          const scrollY = window.scrollY;
+          renderHistory(await fetchHistory());
+          window.scrollTo(0, scrollY);
+        } catch (err) {
+          handleError(err);
+        }
+      };
+      editor.appendChild(btn);
+    });
+    row.setAttribute('aria-expanded', 'true');
+    row.after(editor);
   }
 
   function bindHistoryButtons() {

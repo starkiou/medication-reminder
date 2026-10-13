@@ -171,6 +171,58 @@ test('modifier la date de départ refuse les valeurs invalides', async () => {
   assert.equal(stored.row.pack_number_in_box, 2);
 });
 
+test('une journée passée se corrige depuis l\'historique', async () => {
+  const stored = useDb(onboardedRow());
+  const set = (date, status) => call(stateHandler, { method: 'POST', headers: ACCESS, body: { action: 'set_day_status', date, status } });
+
+  assert.equal((await set('2026-01-10', 'taken')).status, 200);
+  assert.deepEqual(stored.row.confirmed_dates, ['2026-01-10']);
+
+  // la même journée passe en « oubliée » : elle n'est plus comptée comme prise
+  assert.equal((await set('2026-01-10', 'missed')).status, 200);
+  assert.deepEqual(stored.row.confirmed_dates, []);
+  assert.deepEqual(stored.row.missed_dates, ['2026-01-10']);
+
+  // puis on efface l'information
+  assert.equal((await set('2026-01-10', 'unknown')).status, 200);
+  assert.deepEqual(stored.row.confirmed_dates, []);
+  assert.deepEqual(stored.row.missed_dates, []);
+
+  // corriger une journée ne touche pas aux autres
+  await set('2026-01-09', 'taken');
+  await set('2026-01-11', 'missed');
+  await set('2026-01-10', 'taken');
+  assert.deepEqual(stored.row.confirmed_dates.sort(), ['2026-01-09', '2026-01-10']);
+  assert.deepEqual(stored.row.missed_dates, ['2026-01-11']);
+});
+
+test('on ne peut corriger ni le futur, ni avant le début du suivi, ni un jour de pause', async () => {
+  const stored = useDb(onboardedRow());
+  const set = (date, status) => call(stateHandler, { method: 'POST', headers: ACCESS, body: { action: 'set_day_status', date, status } });
+
+  assert.equal((await set('2026-01-15', 'taken')).status, 400); // demain
+  assert.equal((await set('2026-01-04', 'taken')).status, 400); // veille de la création du suivi
+  assert.equal((await set('2026-01-10', 'peut-être')).status, 400);
+  assert.equal((await set('10/01/2026', 'taken')).status, 400);
+  assert.equal((await set(undefined, 'taken')).status, 400);
+  assert.equal((await set('2026-01-14', 'taken')).status, 200); // aujourd'hui est autorisé
+
+  setNow('2026-02-01T11:00:00Z'); // le 27 janvier était un jour de pause
+  assert.equal((await set('2026-01-27', 'taken')).status, 400);
+  assert.deepEqual(stored.row.confirmed_dates, ['2026-01-14']);
+});
+
+test('confirmer aujourd\'hui annule un oubli noté par erreur, et inversement', async () => {
+  const stored = useDb(onboardedRow({ missed_dates: ['2026-01-14'], confirmed_dates: ['2026-01-13'] }));
+  await call(stateHandler, { method: 'POST', headers: ACCESS, body: { action: 'confirm_taken_today' } });
+  assert.deepEqual(stored.row.missed_dates, []);
+  assert.deepEqual(stored.row.confirmed_dates.sort(), ['2026-01-13', '2026-01-14']);
+
+  await call(stateHandler, { method: 'POST', headers: ACCESS, body: { action: 'mark_forgot_yesterday' } });
+  assert.deepEqual(stored.row.missed_dates, ['2026-01-13']);
+  assert.deepEqual(stored.row.confirmed_dates, ['2026-01-14']);
+});
+
 test('une action sur un suivi pas encore configuré est signalée, pas avalée', async () => {
   const res = await call(stateHandler, { method: 'POST', headers: ACCESS, body: { action: 'confirm_taken_today' } });
   assert.equal(res.status, 409);

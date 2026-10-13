@@ -16,7 +16,7 @@ Je l'ai écrite pour un proche qui ne trouvait pas d'application qui lui convena
 - Elle envoie une notification chaque soir à heure fixe, même téléphone verrouillé.
 - Elle envoie un rappel de secours une heure plus tard si la prise n'a pas été confirmée.
 - Elle prévient qu'il faut racheter une boîte pendant la pause de la dernière plaquette.
-- Elle garde l'historique des prises confirmées, des pauses et des oublis ; une prise ni confirmée ni signalée comme oubliée y apparaît comme « non confirmée ».
+- Elle garde l'historique des prises confirmées, des pauses et des oublis. Une prise ni confirmée ni signalée comme oubliée y apparaît comme « non confirmée », et chaque journée se corrige après coup d'un appui.
 
 Le cycle, les heures de rappel et le nom du médicament se règlent par configuration. Par défaut, aucun nom de médicament n'apparaît nulle part.
 

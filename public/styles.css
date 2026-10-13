@@ -305,6 +305,39 @@ input, select {
   padding: 12px 14px;
 }
 
+/* Une journée de prise est un bouton : on retire l'apparence par défaut */
+button.history-row {
+  width: 100%;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-editor {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.history-choice {
+  flex: 1;
+  border: 1px solid rgba(180, 169, 201, 0.45);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 10px 6px;
+  cursor: pointer;
+}
+
+.history-choice.current {
+  background: var(--surface-2);
+  border-color: var(--text-muted);
+}
+
 .history-row.today {
   outline: 1px solid var(--text-muted);
   outline-offset: -1px;
