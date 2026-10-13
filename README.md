@@ -1,4 +1,4 @@
-# Tracker
+# Medication Reminder
 
 Une application web installable sur téléphone (PWA) pour suivre un traitement qui se prend par cycles, par exemple 21 jours de prise puis 7 jours de pause, et recevoir un rappel chaque soir.
 
