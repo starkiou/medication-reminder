@@ -29,7 +29,7 @@ const seeded = process.env.DEV_SEED
       pack_start_date: addDaysISO(getTodayISO(), -Number(process.env.DEV_SEED_DAY || 9)),
       pack_number_in_box: 2,
       missed_dates: [addDaysISO(getTodayISO(), -3)],
-      confirmed_dates: [],
+      confirmed_dates: [addDaysISO(getTodayISO(), -1), addDaysISO(getTodayISO(), -2), addDaysISO(getTodayISO(), -5)],
       push_subscription: { endpoint: 'https://push.example.com/dev' },
       created_at: new Date(Date.now() - 40 * 86400000).toISOString(),
     }

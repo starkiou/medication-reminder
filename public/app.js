@@ -15,6 +15,7 @@
   function showScreen(name) {
     Object.values(screens).forEach((el) => el.classList.add('hidden'));
     screens[name].classList.remove('hidden');
+    window.scrollTo(0, 0);
   }
 
   function showDebugError(message) {
@@ -363,11 +364,17 @@
         buildIntakeCell(main);
         status.textContent = '✕ Oublié';
         status.classList.add('missed');
-      } else if (day.phase === 'pill') {
+      } else if (day.phase === 'pill' && day.confirmed) {
         icon.style.background = 'var(--rose)';
         buildIntakeCell(main);
         status.textContent = '✓ Prise';
         status.classList.add('taken');
+      } else if (day.phase === 'pill') {
+        // Ni confirmée ni signalée comme oubliée : on ne prétend pas qu'elle a été prise
+        icon.style.background = 'var(--text-muted)';
+        buildIntakeCell(main);
+        status.textContent = day.isToday ? 'À prendre' : 'Non confirmée';
+        status.classList.add('pending');
       } else {
         icon.style.background = 'var(--gold)';
         const title = document.createElement('div');
@@ -396,9 +403,10 @@
       }
     };
 
-    document.getElementById('history-back-btn').onclick = () => {
-      showScreen('main');
-    };
+    // Un bouton en haut, qui reste visible pendant le défilement, et un en bas de liste
+    ['history-back-top-btn', 'history-back-btn'].forEach((id) => {
+      document.getElementById(id).onclick = () => showScreen('main');
+    });
   }
 
   function bindOnboardingForm(prefill) {

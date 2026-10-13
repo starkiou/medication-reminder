@@ -16,7 +16,7 @@ Je l'ai écrite pour un proche qui ne trouvait pas d'application qui lui convena
 - Elle envoie une notification chaque soir à heure fixe, même téléphone verrouillé.
 - Elle envoie un rappel de secours une heure plus tard si la prise n'a pas été confirmée.
 - Elle prévient qu'il faut racheter une boîte pendant la pause de la dernière plaquette.
-- Elle garde l'historique des prises, des pauses et des oublis.
+- Elle garde l'historique des prises confirmées, des pauses et des oublis ; une prise ni confirmée ni signalée comme oubliée y apparaît comme « non confirmée ».
 
 Le cycle, les heures de rappel et le nom du médicament se règlent par configuration. Par défaut, aucun nom de médicament n'apparaît nulle part.
 
@@ -82,5 +82,4 @@ Le guide pas à pas est dans [DEPLOY.md](DEPLOY.md) : base Supabase, clés VAPID
 
 - L'application suit une seule personne par déploiement : une ligne en base, un code d'accès.
 - Le code d'accès est un secret partagé, pas un compte utilisateur. Il n'y a pas de limite au nombre d'essais : il doit être long et aléatoire.
-- L'historique affiche comme « prise » toute journée de prise qui n'a pas été signalée comme oubliée, qu'elle ait été confirmée ou non.
 - C'est un outil de rappel. Il ne remplace ni la notice du médicament ni un avis médical.

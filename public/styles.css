@@ -342,3 +342,17 @@ input, select {
 .history-row-status.taken { color: var(--rose); }
 .history-row-status.pause { color: var(--gold); }
 .history-row-status.missed { color: #E0555A; }
+.history-row-status.pending { color: var(--text-muted); }
+
+/* Bouton de retour en haut de l'historique : reste visible quand on fait défiler la liste */
+.history-back-top {
+  position: sticky;
+  top: calc(8px + env(safe-area-inset-top));
+  z-index: 5;
+  align-self: flex-start;
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+}

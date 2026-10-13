@@ -24,6 +24,7 @@ module.exports = async function handler(req, res) {
     }
 
     const missed = new Set(row.missed_dates || []);
+    const confirmed = new Set(row.confirmed_dates || []);
     const todayISO = getTodayISO(config, now());
 
     // On ne remonte jamais avant la création réelle du suivi : pas
@@ -45,6 +46,7 @@ module.exports = async function handler(req, res) {
         phase: info.phase,
         packNumberInBox: info.packNumberInBox,
         missed: missed.has(dateISO),
+        confirmed: confirmed.has(dateISO),
         isToday: dateISO === todayISO,
       });
     }

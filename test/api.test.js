@@ -238,7 +238,25 @@ test('l\'historique part de la création du suivi et marque les oublis', async (
   assert.equal(res.body.days[9].isToday, true);
   assert.equal(res.body.days[3].missed, true);
   assert.equal(res.body.days.filter((d) => d.missed).length, 1);
+  assert.equal(res.body.days.filter((d) => d.confirmed).length, 0);
   assert.ok(res.body.days.every((d) => d.phase === 'pill'));
+});
+
+test('l\'historique distingue les prises confirmées de celles qui ne le sont pas', async () => {
+  useDb(onboardedRow({ confirmed_dates: ['2026-01-12', '2026-01-13'], missed_dates: ['2026-01-08'] }));
+  const days = (await call(historyHandler, { headers: ACCESS })).body.days;
+  const byDate = Object.fromEntries(days.map((d) => [d.date, d]));
+  assert.equal(byDate['2026-01-13'].confirmed, true);
+  assert.equal(byDate['2026-01-12'].confirmed, true);
+  assert.equal(byDate['2026-01-11'].confirmed, false); // ni confirmée ni oubliée
+  assert.equal(byDate['2026-01-08'].confirmed, false);
+  assert.equal(byDate['2026-01-08'].missed, true);
+  assert.equal(byDate['2026-01-14'].confirmed, false); // aujourd'hui, pas encore prise
+
+  // Confirmer aujourd'hui se voit aussitôt dans l'historique
+  await call(stateHandler, { method: 'POST', headers: ACCESS, body: { action: 'confirm_taken_today' } });
+  const after = (await call(historyHandler, { headers: ACCESS })).body.days;
+  assert.equal(after[after.length - 1].confirmed, true);
 });
 
 test('l\'historique est limité à 365 jours et au nombre demandé', async () => {
