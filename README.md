@@ -1,239 +1,86 @@
-# Pilule — suivi et rappel
+# Tracker
 
-App web installable sur iPhone (PWA) pour suivre le cycle 21 jours de prise / 7 jours de
-pause de la pilule, avec une notification chaque jour à 21h — même téléphone
-verrouillé — et une alerte pour racheter une boîte à temps.
+Une application web installable sur téléphone (PWA) pour suivre un traitement qui se prend par cycles, par exemple 21 jours de prise puis 7 jours de pause, et recevoir un rappel chaque soir.
 
-Aucune donnée médicale n'est envoyée nulle part d'autre qu'à ta propre base Supabase.
+Je l'ai écrite pour un proche qui ne trouvait pas d'application qui lui convenait, et elle sert tous les jours depuis l'été 2026.
 
-> **À savoir avant de déployer** : la logique du cycle a été testée unitairement, mais
-> l'intégration complète (Supabase + Vercel + notifications iOS) n'a pas pu être testée
-> en conditions réelles avant que tu la déploies. Prévois un ou deux allers-retours de
-> débogage au premier déploiement (variable d'environnement mal recopiée, permission
-> refusée, etc.) plutôt qu'un fonctionnement parfait du premier coup.
+<p>
+  <img src="docs/ecran-principal.jpg" alt="Écran principal : jour du cycle, comprimés restants, bouton de confirmation" width="260">
+  <img src="docs/historique.jpg" alt="Historique des prises, des pauses et des oublis" width="260">
+  <img src="docs/code-acces.jpg" alt="Écran du code d'accès" width="260">
+</p>
 
-## Tester sans iPhone et sans attendre 21h
+## Ce que fait l'application
 
-Deux limites du test "en vrai" (iPhone requis, 21h pile) sont contournables :
+- Elle affiche où on en est : jour du cycle, plaquette en cours, comprimés restants, date de reprise pendant la pause.
+- Elle envoie une notification chaque soir à heure fixe, même téléphone verrouillé.
+- Elle envoie un rappel de secours une heure plus tard si la prise n'a pas été confirmée.
+- Elle prévient qu'il faut racheter une boîte pendant la pause de la dernière plaquette.
+- Elle garde l'historique des prises, des pauses et des oublis.
 
-**Tester sans iPhone** — la contrainte "installer sur l'écran d'accueil" est une
-exigence propre à Safari/iOS. Sur ordinateur (Chrome, Edge) ou Android, l'app fonctionne
-directement dans un onglet normal, sans installation :
+Le cycle, les heures de rappel et le nom du médicament se règlent par configuration. Par défaut, aucun nom de médicament n'apparaît nulle part.
 
-1. Ouvre l'URL Vercel dans Chrome sur ton ordinateur.
-2. Fais l'onboarding (date + numéro de plaquette).
-3. Clique **Activer les notifications** et accepte la demande du navigateur.
-
-Ça valide toute la chaîne (Supabase, clés VAPID, envoi de notification, contenu du
-message) — seule l'installation "écran d'accueil" spécifique à iOS n'est pas testée par
-ce biais, mais c'est la partie la plus simple et la moins susceptible de casser.
-
-**Tester sans attendre 21h** — un endpoint dédié envoie la notification immédiatement,
-sans regarder l'heure :
+## Comment c'est fait
 
 ```
-https://ton-app.vercel.app/api/test-notification?key=LA_VALEUR_DE_CRON_SECRET
+Téléphone (PWA)  ──►  Fonctions serverless (Vercel)  ──►  Base de données (Supabase)
+       ▲                        ▲
+       │ notification push      │ appel à heure fixe
+Service de push            cron-job.org
 ```
 
-Ouvre simplement cette URL dans un navigateur (remplace par ta vraie valeur de
-`CRON_SECRET`) après avoir activé les notifications au moins une fois. Tu dois recevoir
-la notification quelques secondes après. Cet endpoint exige que `CRON_SECRET` soit
-défini sur Vercel — sans ça, il refuse de répondre, pour éviter que n'importe qui
-connaissant l'URL ne déclenche une notification chez vous.
+| Partie | Technologie |
+|---|---|
+| Interface | HTML, CSS et JavaScript sans framework, service worker |
+| API | Fonctions Node.js sur Vercel, dans [api/](api) |
+| Logique du cycle | Fonctions pures dans [lib/cycle.js](lib/cycle.js) |
+| Données | Une table Supabase, décrite dans [supabase.sql](supabase.sql) |
+| Notifications | Web Push (clés VAPID) |
+| Déclenchement | cron-job.org, deux appels par jour |
 
-## Nouveauté : historique
+## Les problèmes que j'ai dû résoudre
 
-Un bouton "Voir l'historique" sur l'écran principal affiche l'historique complet
-(prise / pause / oublié), regroupé par semaines avec la date en repère à gauche de
-chaque ligne — pas de limite fixe à 8 semaines, ça remonte jusqu'à la création du compte
-(plafonné à 1 an pour éviter une réponse démesurée après longtemps).
+**Le rappel doit partir à 21h, été comme hiver.** Un cron se programme en heure fixe, alors que 21h à Paris correspond à 20h UTC en hiver et 19h UTC en été. Le serveur vérifie donc lui-même l'heure dans le fuseau configuré avant d'envoyer, et le jour courant est toujours calculé dans ce fuseau, jamais en UTC. Sans ça, une prise confirmée à minuit et demi serait rangée dans la veille.
 
-**Important** : l'historique ne remonte jamais avant la date de création réelle du
-compte — donc pas de semaines "fantômes" calculées à l'envers avant que l'app n'ait été
-installée. Ça nécessite une nouvelle colonne `created_at`.
+**Un cron externe n'est pas ponctuel à la seconde.** Un appel arrivé à 20:59:58 était ignoré parce qu'il n'était « pas 21h », et aucun rappel ne partait ce soir-là. Le serveur accepte maintenant les cinq minutes qui précèdent l'heure visée.
 
-**Si tu as déjà une base Supabase existante**, lance cette migration avant de
-redéployer (SQL Editor) :
+**Le cron peut ne pas tourner pendant des semaines.** L'état du cycle n'est pas un compteur qu'on incrémente chaque jour : il est recalculé à partir de la date de début de la plaquette. Si plusieurs cycles ont passé, le calcul les rattrape d'un coup, changements de plaquette et de boîte compris.
 
-```sql
-alter table app_state add column if not exists created_at timestamptz not null default now();
-```
+**Les notifications sur iPhone.** Safari ne les autorise que pour une application installée sur l'écran d'accueil. L'application détecte ce cas et explique comment l'installer avant de demander l'autorisation.
 
-Comme la valeur par défaut s'applique au moment où tu lances la commande, l'historique
-d'un compte déjà existant ne remontera pas avant aujourd'hui non plus — c'est voulu,
-plutôt que d'afficher un historique inventé.
+**Un abonnement push peut mourir.** Quand le service de push répond que l'abonnement n'existe plus, il est retiré de la base et l'application redemande l'autorisation à la prochaine ouverture, au lieu d'envoyer dans le vide indéfiniment.
 
-## Notification pile à 21h00 (et non dans une fenêtre 21h-21h59)
+**Ce sont des données de santé.** L'API est fermée par un code d'accès demandé une fois par appareil, et les appels du cron par un secret distinct. Si l'un des deux n'est pas configuré, le serveur refuse de répondre plutôt que de rester ouvert. Les erreurs internes partent dans les journaux du serveur, pas dans les réponses.
 
-Le cron intégré de Vercel (plan gratuit) ne garantit pas la minute exacte — il peut se
-déclencher n'importe quand dans l'heure programmée. Pour une notification à la minute
-pile, on utilise à la place un service de cron externe et gratuit,
-[cron-job.org](https://cron-job.org), qui appelle notre endpoint `/api/cron` à l'heure
-précise.
-
-**`vercel.json` ne contient donc plus de cron** (fichier vide) — c'est normal, c'est
-voulu.
-
-**Mise en place (5 minutes) :**
-
-1. Crée un compte gratuit sur [cron-job.org](https://console.cron-job.org)
-2. Crée un nouveau cronjob :
-   - **URL** : `https://ton-app.vercel.app/api/cron`
-   - **Schedule** : tous les jours à **21:00**
-   - **Timezone** : `Europe/Paris` (gère automatiquement l'heure d'été/hiver)
-3. Dans les réglages avancés du cronjob, ajoute un **header personnalisé** :
-   - Nom : `Authorization`
-   - Valeur : `Bearer TA_VALEUR_DE_CRON_SECRET` (la même que celle définie sur Vercel)
-4. Sauvegarde et active le cronjob
-
-C'est tout — le code de `/api/cron` n'a pas changé, il accepte déjà les appels externes
-tant que le bon `Authorization` est fourni. Tu peux vérifier l'historique des
-exécutions directement sur le dashboard de cron-job.org pour confirmer que ça se
-déclenche bien chaque jour.
-
-## Nouveauté : rappel de secours à 22h + confirmation de prise
-
-Un bouton **"✓ J'ai pris ma pilule aujourd'hui"** apparaît sur l'écran principal les
-jours de prise. Si elle ne l'a pas cliqué avant 22h, une **deuxième notification** part
-automatiquement pour éviter un oubli. Si elle l'a déjà confirmé, rien ne se passe à 22h.
-
-**Nouvelle migration Supabase à lancer** (SQL Editor) :
-
-```sql
-alter table app_state add column if not exists confirmed_dates date[] not null default '{}';
-```
-
-**Deuxième cronjob à créer sur cron-job.org**, en plus de celui à 21h :
-
-- **URL** : `https://ton-app.vercel.app/api/cron-backup`
-- **Schedule** : tous les jours à **22:00**, timezone `Europe/Paris`
-- **Header** : `Authorization: Bearer TA_VALEUR_DE_CRON_SECRET` (la même clé que l'autre
-  cronjob)
-
-Pour tester ce rappel de secours sans attendre 22h : ajoute `&backup=1` à l'URL de test
-habituelle :
-```
-https://ton-app.vercel.app/api/test-notification?key=TA_CLE&backup=1
-```
-
-## Nouveauté : thème floral
-
-Petite touche visuelle demandée : les points de l'anneau des 28 jours sont maintenant de
-petites fleurs plutôt que de simples ronds, l'icône de l'app est une rosace, et un
-symbole ✿ accompagne le nom du médicament. Aucune migration ni configuration
-nécessaire, uniquement des fichiers `app.js`, `styles.css`, `index.html` et les icônes.
-
-## Ce dont tu as besoin (tout est gratuit)
-
-- Un compte [GitHub](https://github.com) (tu l'as déjà)
-- Un compte [Vercel](https://vercel.com) — connecte-toi avec GitHub, ça suffit
-- Un compte [Supabase](https://supabase.com) — connecte-toi avec GitHub aussi
-
-## 1. Créer le projet Supabase
-
-1. Sur [supabase.com](https://supabase.com), crée un nouveau projet (choisis une région
-   proche, ex. Europe).
-2. Une fois le projet créé, va dans **SQL Editor**, colle le contenu du fichier
-   `supabase.sql` fourni ici, et exécute-le. Ça crée la table `app_state` avec une ligne
-   de départ.
-3. Récupère l'URL et la clé — le plus simple est le bouton **Connect** en haut du
-   dashboard, qui affiche les deux directement. Sinon :
-   - **Project URL** → **Settings > Data API**
-   - **Clé** → **Settings > API Keys**. Supabase a renommé les anciennes clés : prends la
-     **Secret key** (commence par `sb_secret_...`, à créer si elle n'existe pas encore)
-     — ou, si tu vois encore l'ancien système, la clé **service_role** sous l'onglet
-     **Legacy API Keys**. Les deux fonctionnent avec ce projet.
-   - `Project URL` → ce sera `SUPABASE_URL`
-   - La clé secrète → ce sera `SUPABASE_SERVICE_KEY`
-
-   ⚠️ Ne prends jamais la clé **Publishable** / **anon** ici — cette clé-là est prévue
-   pour le navigateur et n'a pas les droits nécessaires pour notre serveur.
-
-## 2. Générer les clés de notification (VAPID)
-
-Dans un terminal, sur ta machine :
+## Tests
 
 ```bash
-npx web-push generate-vapid-keys
+npm test
 ```
 
-Ça affiche une clé publique et une clé privée. Garde les deux de côté.
+Les 60 tests tournent avec le lanceur intégré à Node, sans dépendance à installer. Ils couvrent :
 
-## 3. Mettre le code sur GitHub
+- le cycle : changement de plaquette et de boîte, rattrapage après plusieurs cycles, autres durées (24/4, prise continue) ;
+- les dates : fins de mois, 29 février, heure d'été, jour du changement d'heure ;
+- l'API : contrôle d'accès, validation des entrées, envoi et non-envoi des rappels selon l'heure et l'état, abonnement expiré, pannes.
 
-Depuis le dossier du projet :
+Les endpoints sont testés avec une base en mémoire et des notifications simulées ([scripts/fake-backend.js](scripts/fake-backend.js)).
+
+## Lancer en local
 
 ```bash
-git init
-git add .
-git commit -m "Première version"
+npm run dev
 ```
 
-Crée un nouveau repo (vide) sur GitHub, puis :
+L'application est servie sur http://localhost:3000 avec une base en mémoire ; le code d'accès est `dev`. Rien n'est lu ni écrit dans Supabase et aucune vraie notification ne part. `DEV_SEED=1 npm run dev` démarre avec un suivi déjà configuré.
 
-```bash
-git remote add origin <URL_DE_TON_REPO>
-git branch -M main
-git push -u origin main
-```
+## Déployer sa propre instance
 
-## 4. Déployer sur Vercel
+Le guide pas à pas est dans [DEPLOY.md](DEPLOY.md) : base Supabase, clés VAPID, variables d'environnement Vercel et jobs cron.
 
-1. Sur [vercel.com](https://vercel.com), clique **Add New > Project**, choisis ton repo
-   GitHub.
-2. Laisse les réglages par défaut (Vercel détecte automatiquement le dossier `api/` et
-   `public/`).
-3. Avant de cliquer sur Deploy, ouvre **Environment Variables** et ajoute :
+## Limites
 
-   | Nom | Valeur |
-   |---|---|
-   | `SUPABASE_URL` | celle notée à l'étape 1 |
-   | `SUPABASE_SERVICE_KEY` | celle notée à l'étape 1 |
-   | `VAPID_PUBLIC_KEY` | celle générée à l'étape 2 |
-   | `VAPID_PRIVATE_KEY` | celle générée à l'étape 2 |
-   | `VAPID_SUBJECT` | `mailto:ton-email@example.com` |
-   | `CRON_SECRET` | une chaîne aléatoire de ton choix (optionnel mais recommandé) |
-
-4. Clique **Deploy**. Après quelques secondes tu obtiens une URL du type
-   `https://tracker-xxxx.vercel.app`.
-
-Le rappel quotidien n'est **pas** géré par Vercel ici — configure cron-job.org comme
-indiqué dans la section "Notification pile à 21h00" plus bas avant de passer à
-l'installation sur l'iPhone.
-
-## 5. Installer sur l'iPhone
-
-1. Ouvre l'URL Vercel **dans Safari** (obligatoire — pas Chrome, pas d'autre navigateur).
-2. Appuie sur l'icône **Partager**, puis **Sur l'écran d'accueil**.
-3. Ouvre l'app depuis l'icône ajoutée à l'écran d'accueil (pas depuis Safari — les
-   notifications ne marchent que depuis l'app installée).
-4. Renseigne la date de début de la plaquette en cours et son numéro (1, 2 ou 3 sur la
-   boîte).
-5. Appuie sur **Activer les notifications** et accepte la demande d'autorisation iOS.
-
-C'est prêt. Le rappel arrivera chaque jour à 21h.
-
-## Comment ça fonctionne
-
-- **Chaque jour à 21h (heure de Paris)**, un petit programme côté serveur regarde où en
-  est le cycle et envoie une notification :
-  - Jours 1 à 21 → « Prends ta pilule »
-  - Jours 22 à 28 → « Jour de pause »
-  - Si c'est la pause qui suit la 3ᵉ plaquette de la boîte → rappel d'en racheter une
-- **Le bouton « J'ai oublié hier »** note simplement l'oubli pour ton information ; il ne
-  modifie pas le calendrier (les règles de rattrapage restent celles de la notice du
-  médicament).
-- **Le rappel quotidien** est déclenché par cron-job.org (pas par Vercel), pile à 21h00
-  heure de Paris, été comme hiver (voir section dédiée plus haut).
-
-## Modifier la date de départ plus tard
-
-Depuis l'écran principal de l'app, le lien **Modifier la date de départ** permet de
-recorriger la plaquette et le numéro de boîte sans tout réinstaller.
-
-## Limites connues
-
-- Pensée pour une seule personne (une seule ligne en base). Pour suivre plusieurs
-  personnes il faudrait ajouter un identifiant par personne.
-- Ce suivi est un outil de rappel, pas un avis médical : en cas d'oubli, se référer à la
-  notice de la pilule ou à un professionnel de santé.
+- L'application suit une seule personne par déploiement : une ligne en base, un code d'accès.
+- Le code d'accès est un secret partagé, pas un compte utilisateur. Il n'y a pas de limite au nombre d'essais : il doit être long et aléatoire.
+- L'historique affiche comme « prise » toute journée de prise qui n'a pas été signalée comme oubliée, qu'elle ait été confirmée ou non.
+- C'est un outil de rappel. Il ne remplace ni la notice du médicament ni un avis médical.
