@@ -611,6 +611,27 @@
     }
   }
 
+  /**
+   * Renvoie au serveur l'abonnement push de cet appareil. Le serveur n'en garde
+   * qu'un : celui du dernier appareil qui s'est abonné. Sans ce renvoi à chaque
+   * ouverture, un abonnement pris ailleurs (un autre téléphone, un navigateur de
+   * test) détournait les rappels pour de bon, alors que l'application affichait
+   * toujours « notifications actives ».
+   */
+  async function resyncPushSubscription(state) {
+    try {
+      await subscribeToPush(state.effectivePackStartDate, state.packNumberInBox);
+      if (!state.hasPushSubscription) await refreshMain();
+    } catch (err) {
+      if (err instanceof AccessDeniedError) {
+        handleError(err);
+        return;
+      }
+      // L'application reste utilisable même si l'abonnement n'a pas pu être renvoyé
+      console.error('abonnement push non renvoyé', err);
+    }
+  }
+
   /** Charge l'état et affiche l'écran qui convient. Rejouée après la saisie du code d'accès. */
   async function start() {
     try {
@@ -622,7 +643,7 @@
         return;
       }
 
-      if (!state.hasPushSubscription || Notification.permission !== 'granted') {
+      if (Notification.permission !== 'granted') {
         pendingPackStartDate = state.effectivePackStartDate;
         pendingPackNumber = state.packNumberInBox;
         showScreen('notif');
@@ -630,6 +651,7 @@
       }
 
       renderMain(state);
+      resyncPushSubscription(state);
     } catch (err) {
       handleError(err);
     }
