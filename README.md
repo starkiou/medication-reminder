@@ -10,7 +10,7 @@ Je l'ai écrite pour un proche qui ne trouvait pas d'application qui lui convena
   <img src="docs/code-acces.jpg" alt="Écran du code d'accès" width="260">
 </p>
 
-## Ce que fait l'application
+## Fonctionnalités
 
 - Elle affiche où on en est : jour du cycle, plaquette en cours, comprimés restants, date de reprise pendant la pause.
 - Elle envoie une notification chaque soir à heure fixe, même téléphone verrouillé.
@@ -58,7 +58,7 @@ Service de push            cron-job.org
 npm test
 ```
 
-Les 60 tests tournent avec le lanceur intégré à Node, sans dépendance à installer. Ils couvrent :
+Les 64 tests tournent avec le lanceur intégré à Node, sans dépendance à installer. Ils couvrent :
 
 - le cycle : changement de plaquette et de boîte, rattrapage après plusieurs cycles, autres durées (24/4, prise continue) ;
 - les dates : fins de mois, 29 février, heure d'été, jour du changement d'heure ;
@@ -83,3 +83,7 @@ Le guide pas à pas est dans [DEPLOY.md](DEPLOY.md) : base Supabase, clés VAPID
 - L'application suit une seule personne par déploiement : une ligne en base, un code d'accès.
 - Le code d'accès est un secret partagé, pas un compte utilisateur. Il n'y a pas de limite au nombre d'essais : il doit être long et aléatoire.
 - C'est un outil de rappel. Il ne remplace ni la notice du médicament ni un avis médical.
+
+## Licence
+
+[MIT](LICENSE)
